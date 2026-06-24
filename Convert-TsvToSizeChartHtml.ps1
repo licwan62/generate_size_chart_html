@@ -11,6 +11,7 @@ param(
     [string]$Subtitle = "FOR YOUR CAR COVER",
     [string]$BrandColumn = "BRAND",
     [string[]]$TableColumns = @("MODEL", "YEAR", "TYPE", "SIZE"),
+    [string]$CssPath = "",
     [switch]$NoBanner
 )
 
@@ -72,6 +73,7 @@ function Render-Table {
     }
 
     $bodyRows = foreach ($row in $Rows) {
+        $rowClass = Get-PropertyValue -Row $row -Name "__MODEL_STRIPE_CLASS"
         $cells = foreach ($column in $ColumnNames) {
             $value = Get-PropertyValue -Row $row -Name $column
             $escaped = Encode-Html $value
@@ -85,7 +87,7 @@ function Render-Table {
         }
 
 @"
-        <tr>
+        <tr class="$rowClass">
 $($cells -join "`n")
         </tr>
 "@
@@ -129,6 +131,25 @@ foreach ($row in $rows) {
 $tables = New-Object System.Collections.Generic.List[string]
 foreach ($brand in $brandGroups.Keys) {
     $brandRows = @($brandGroups[$brand])
+    $previousModel = $null
+    $modelGroupIndex = -1
+    foreach ($row in $brandRows) {
+        $model = Get-PropertyValue -Row $row -Name "MODEL"
+        if ($null -eq $previousModel -or $model -ne $previousModel) {
+            $modelGroupIndex++
+            $previousModel = $model
+        }
+
+        $stripeClass = if ($modelGroupIndex % 2 -eq 0) { "model-stripe-light" } else { "model-stripe-dark" }
+        $existing = $row.PSObject.Properties["__MODEL_STRIPE_CLASS"]
+        if ($null -eq $existing) {
+            $row | Add-Member -NotePropertyName "__MODEL_STRIPE_CLASS" -NotePropertyValue $stripeClass
+        }
+        else {
+            $existing.Value = $stripeClass
+        }
+    }
+
     $safeMaxRows = [Math]::Max(1, $MaxRows)
     $totalParts = [Math]::Ceiling($brandRows.Count / $safeMaxRows)
 
@@ -141,6 +162,33 @@ foreach ($brand in $brandGroups.Keys) {
 }
 
 $safeColumns = [Math]::Max(1, $Columns)
+$outputDirectory = Split-Path -Parent $OutputPath
+if ([string]::IsNullOrWhiteSpace($outputDirectory)) {
+    $outputDirectory = "."
+}
+
+if ([string]::IsNullOrWhiteSpace($CssPath)) {
+    $CssPath = Join-Path $outputDirectory "size-chart-template.css"
+}
+
+$cssOutputPath = $CssPath
+if (-not [System.IO.Path]::IsPathRooted($cssOutputPath)) {
+    $cssOutputPath = Join-Path (Get-Location) $cssOutputPath
+}
+
+$cssHref = [System.IO.Path]::GetFileName($CssPath)
+$templateCssPath = Join-Path $PSScriptRoot "size-chart-template.css"
+if (-not (Test-Path $cssOutputPath)) {
+    if (-not (Test-Path $templateCssPath)) {
+        throw "CSS template not found: $templateCssPath"
+    }
+    $cssDirectory = Split-Path -Parent $cssOutputPath
+    if (-not [string]::IsNullOrWhiteSpace($cssDirectory)) {
+        New-Item -ItemType Directory -Path $cssDirectory -Force | Out-Null
+    }
+    Copy-Item -Path $templateCssPath -Destination $cssOutputPath
+}
+
 $banner = ""
 if (-not $NoBanner) {
     $banner = @"
@@ -160,191 +208,21 @@ $html = @"
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>$(Encode-Html $Title)</title>
-  <style>
-    :root {
-      --blue-dark: #062746;
-      --blue: #004b91;
-      --grid: #d7dbe0;
-      --text: #161b22;
-      --paper: #f3f4f6;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      background: var(--paper);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-    }
-
-    .hero {
-      background: var(--blue-dark);
-      color: #fff;
-      padding: 22px 28px 16px;
-      border-bottom: 10px solid #0d5ba6;
-    }
-
-    .hero h1 {
-      margin: 0;
-      font-size: clamp(34px, 5vw, 58px);
-      line-height: 0.95;
-      letter-spacing: 0;
-      font-weight: 900;
-    }
-
-    .hero h1 span {
-      font-size: 0.72em;
-      font-weight: 700;
-    }
-
-    .hero p {
-      display: inline-block;
-      margin: 18px 0 0;
-      padding: 8px 18px;
-      background: #094f98;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      text-transform: uppercase;
-      font-weight: 800;
-      font-size: 16px;
-    }
-
-    .chart {
-      column-count: $safeColumns;
-      column-gap: 14px;
-      padding: 14px;
-    }
-
-    .brand-table {
-      display: inline-block;
-      width: 100%;
-      margin: 0 0 14px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-      background: #fff;
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
-    }
-
-    .brand-table h2 {
-      margin: 0;
-      padding: 6px 12px;
-      min-height: 38px;
-      background: linear-gradient(90deg, #003f82, #0060af);
-      color: #fff;
-      font-size: 28px;
-      line-height: 1;
-      font-weight: 900;
-      letter-spacing: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .brand-part {
-      font-size: 12px;
-      font-weight: 700;
-      opacity: 0.85;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 17px;
-    }
-
-    th, td {
-      border-right: 1px solid var(--grid);
-      border-bottom: 1px solid var(--grid);
-      padding: 3px 6px;
-      overflow-wrap: anywhere;
-      vertical-align: middle;
-    }
-
-    th:last-child, td:last-child { border-right: 0; }
-
-    th {
-      color: #315c72;
-      background: #fff;
-      text-align: left;
-      font-size: 12px;
-      line-height: 1;
-      font-weight: 800;
-    }
-
-    td:nth-child(1) { font-weight: 800; }
-    td:nth-child(2) { white-space: nowrap; }
-
-    th:nth-child(1), td:nth-child(1) { width: 28%; }
-    th:nth-child(2), td:nth-child(2) { width: 28%; }
-    th:nth-child(3), td:nth-child(3) { width: 32%; }
-    th:nth-child(4), td:nth-child(4) { width: 12%; }
-
-    .size-cell {
-      padding: 2px 4px;
-      text-align: center;
-    }
-
-    .size-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 28px;
-      height: 22px;
-      padding: 0 3px;
-      border-radius: 3px;
-      color: #fff;
-      font-weight: 900;
-      line-height: 1;
-      box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.22);
-    }
-
-    .size-a { background: #1f86c7; }
-    .size-c { background: #c91d31; }
-    .size-h { background: #159aa2; }
-    .size-s { background: #ef9c32; }
-    .size-other { background: #6b7280; }
-
-    @media (max-width: 1200px) {
-      .chart { column-count: min(3, $safeColumns); }
-      table { font-size: 15px; }
-      .brand-table h2 { font-size: 24px; }
-    }
-
-    @media (max-width: 760px) {
-      .chart { column-count: 1; padding: 10px; }
-      .hero { padding: 18px 16px 12px; }
-      .hero p { font-size: 12px; }
-      table { font-size: 14px; }
-      th, td { padding: 3px 4px; }
-      .brand-table h2 { font-size: 22px; }
-    }
-
-    @media print {
-      body { background: #fff; }
-      .hero { padding: 12px 18px; }
-      .chart { padding: 8px; column-gap: 8px; }
-      .brand-table { margin-bottom: 8px; box-shadow: none; border: 1px solid #cdd3da; }
-    }
-  </style>
+  <link rel="stylesheet" href="$(Encode-Html $cssHref)">
 </head>
 <body>
 $banner
-  <main class="chart">
+  <main class="chart" style="--chart-columns: $safeColumns;">
 $($tables -join "`n")
   </main>
 </body>
 </html>
 "@
 
-$outputDirectory = Split-Path -Parent $OutputPath
-if (-not [string]::IsNullOrWhiteSpace($outputDirectory)) {
+if ($outputDirectory -ne ".") {
     New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 }
 
 Set-Content -Path $OutputPath -Value $html -Encoding UTF8
 Write-Host "Wrote $OutputPath"
+Write-Host "Using CSS $CssPath"

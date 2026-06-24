@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import shutil
 from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable
@@ -62,6 +63,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Hide the top title/banner area and output only the chart grid.",
     )
+    parser.add_argument(
+        "--css-path",
+        type=Path,
+        default=None,
+        help="CSS file path to reference from the HTML. Defaults to size-chart-template.css beside the output.",
+    )
     return parser.parse_args()
 
 
@@ -102,6 +109,19 @@ def css_class_for_size(value: str) -> str:
     return "size-other"
 
 
+def add_model_stripes(rows: list[dict[str, str]]) -> None:
+    previous_model: str | None = None
+    model_group_index = -1
+    for row in rows:
+        model = row.get("MODEL", "")
+        if previous_model is None or model != previous_model:
+            model_group_index += 1
+            previous_model = model
+        row["__MODEL_STRIPE_CLASS"] = (
+            "model-stripe-light" if model_group_index % 2 == 0 else "model-stripe-dark"
+        )
+
+
 def render_table(
     brand: str,
     rows: list[dict[str, str]],
@@ -118,6 +138,7 @@ def render_table(
     )
     body_rows = []
     for row in rows:
+        row_class = html.escape(row.get("__MODEL_STRIPE_CLASS", ""))
         cells = []
         for column in table_columns:
             value = row.get(column, "")
@@ -129,7 +150,7 @@ def render_table(
                 )
             else:
                 cells.append(f"          <td>{escaped}</td>")
-        body_rows.append("        <tr>\n" + "\n".join(cells) + "\n        </tr>")
+        body_rows.append(f'        <tr class="{row_class}">\n' + "\n".join(cells) + "\n        </tr>")
 
     return f"""    <section class="brand-table">
       <h2>{title}</h2>
@@ -154,9 +175,11 @@ def render_html(
     title: str,
     subtitle: str,
     show_banner: bool,
+    css_href: str,
 ) -> str:
     tables: list[str] = []
     for brand, brand_rows in grouped.items():
+        add_model_stripes(brand_rows)
         split_rows = list(chunks(brand_rows, max_rows))
         for index, part_rows in enumerate(split_rows, start=1):
             tables.append(render_table(brand, part_rows, table_columns, index, len(split_rows)))
@@ -178,197 +201,28 @@ def render_html(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{html.escape(title)}</title>
-  <style>
-    :root {{
-      --blue-dark: #062746;
-      --blue: #004b91;
-      --blue-bright: #168ee4;
-      --grid: #d7dbe0;
-      --text: #161b22;
-      --paper: #f3f4f6;
-    }}
-
-    * {{ box-sizing: border-box; }}
-
-    body {{
-      margin: 0;
-      background: var(--paper);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-    }}
-
-    .hero {{
-      background: var(--blue-dark);
-      color: #fff;
-      padding: 22px 28px 16px;
-      border-bottom: 10px solid #0d5ba6;
-    }}
-
-    .hero h1 {{
-      margin: 0;
-      font-size: clamp(34px, 5vw, 58px);
-      line-height: 0.95;
-      letter-spacing: 0;
-      font-weight: 900;
-    }}
-
-    .hero h1::first-line {{
-      color: #fff;
-    }}
-
-    .hero h1 span {{
-      font-size: 0.72em;
-      font-weight: 700;
-    }}
-
-    .hero p {{
-      display: inline-block;
-      margin: 18px 0 0;
-      padding: 8px 18px;
-      background: #094f98;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      text-transform: uppercase;
-      font-weight: 800;
-      font-size: 16px;
-    }}
-
-    .chart {{
-      column-count: {safe_columns};
-      column-gap: 14px;
-      padding: 14px;
-    }}
-
-    .brand-table {{
-      display: inline-block;
-      width: 100%;
-      margin: 0 0 14px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-      background: #fff;
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
-    }}
-
-    .brand-table h2 {{
-      margin: 0;
-      padding: 6px 12px;
-      min-height: 38px;
-      background: linear-gradient(90deg, #003f82, #0060af);
-      color: #fff;
-      font-size: 28px;
-      line-height: 1;
-      font-weight: 900;
-      letter-spacing: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }}
-
-    .brand-part {{
-      font-size: 12px;
-      font-weight: 700;
-      opacity: 0.85;
-    }}
-
-    table {{
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 17px;
-    }}
-
-    th, td {{
-      border-right: 1px solid var(--grid);
-      border-bottom: 1px solid var(--grid);
-      padding: 3px 6px;
-      overflow-wrap: anywhere;
-      vertical-align: middle;
-    }}
-
-    th:last-child, td:last-child {{
-      border-right: 0;
-    }}
-
-    th {{
-      color: #315c72;
-      background: #fff;
-      text-align: left;
-      font-size: 12px;
-      line-height: 1;
-      font-weight: 800;
-    }}
-
-    td:nth-child(1) {{
-      font-weight: 800;
-    }}
-
-    td:nth-child(2) {{
-      white-space: nowrap;
-    }}
-
-    th:nth-child(1), td:nth-child(1) {{ width: 28%; }}
-    th:nth-child(2), td:nth-child(2) {{ width: 28%; }}
-    th:nth-child(3), td:nth-child(3) {{ width: 32%; }}
-    th:nth-child(4), td:nth-child(4) {{ width: 12%; }}
-
-    .size-cell {{
-      padding: 2px 4px;
-      text-align: center;
-    }}
-
-    .size-badge {{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 28px;
-      height: 22px;
-      padding: 0 3px;
-      border-radius: 3px;
-      color: #fff;
-      font-weight: 900;
-      line-height: 1;
-      box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.22);
-    }}
-
-    .size-a {{ background: #1f86c7; }}
-    .size-c {{ background: #c91d31; }}
-    .size-h {{ background: #159aa2; }}
-    .size-s {{ background: #ef9c32; }}
-    .size-other {{ background: #6b7280; }}
-
-    @media (max-width: 1200px) {{
-      .chart {{ column-count: min(3, {safe_columns}); }}
-      table {{ font-size: 15px; }}
-      .brand-table h2 {{ font-size: 24px; }}
-    }}
-
-    @media (max-width: 760px) {{
-      .chart {{ column-count: 1; padding: 10px; }}
-      .hero {{ padding: 18px 16px 12px; }}
-      .hero p {{ font-size: 12px; }}
-      table {{ font-size: 14px; }}
-      th, td {{ padding: 3px 4px; }}
-      .brand-table h2 {{ font-size: 22px; }}
-    }}
-
-    @media print {{
-      body {{ background: #fff; }}
-      .hero {{ padding: 12px 18px; }}
-      .chart {{ padding: 8px; column-gap: 8px; }}
-      .brand-table {{ margin-bottom: 8px; box-shadow: none; border: 1px solid #cdd3da; }}
-    }}
-  </style>
+  <link rel="stylesheet" href="{html.escape(css_href)}">
 </head>
 <body>
-{banner}  <main class="chart">
+{banner}  <main class="chart" style="--chart-columns: {safe_columns};">
 {chr(10).join(tables)}
   </main>
 </body>
 </html>
 """
+
+
+def prepare_css(output_path: Path, css_path: Path | None) -> tuple[Path, str]:
+    target_css = css_path or output_path.parent / "size-chart-template.css"
+    if not target_css.is_absolute():
+        target_css = Path.cwd() / target_css
+
+    template_css = Path(__file__).with_name("size-chart-template.css")
+    if not target_css.exists():
+        target_css.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(template_css, target_css)
+
+    return target_css, target_css.name
 
 
 def main() -> None:
@@ -379,6 +233,7 @@ def main() -> None:
         raise ValueError("--table-columns must contain at least one column.")
 
     grouped = group_by_brand(rows, args.brand_column)
+    _, css_href = prepare_css(args.output, args.css_path)
     html_text = render_html(
         grouped=grouped,
         table_columns=table_columns,
@@ -387,6 +242,7 @@ def main() -> None:
         title=args.title,
         subtitle=args.subtitle,
         show_banner=not args.no_banner,
+        css_href=css_href,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(html_text, encoding="utf-8")

@@ -4,177 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FIND THE RIGHT SIZE</title>
-  <style>
-    :root {
-      --blue-dark: #062746;
-      --blue: #004b91;
-      --grid: #d7dbe0;
-      --text: #161b22;
-      --paper: #f3f4f6;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      background: var(--paper);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-    }
-
-    .hero {
-      background: var(--blue-dark);
-      color: #fff;
-      padding: 22px 28px 16px;
-      border-bottom: 10px solid #0d5ba6;
-    }
-
-    .hero h1 {
-      margin: 0;
-      font-size: clamp(34px, 5vw, 58px);
-      line-height: 0.95;
-      letter-spacing: 0;
-      font-weight: 900;
-    }
-
-    .hero h1 span {
-      font-size: 0.72em;
-      font-weight: 700;
-    }
-
-    .hero p {
-      display: inline-block;
-      margin: 18px 0 0;
-      padding: 8px 18px;
-      background: #094f98;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      text-transform: uppercase;
-      font-weight: 800;
-      font-size: 16px;
-    }
-
-    .chart {
-      column-count: 4;
-      column-gap: 14px;
-      padding: 14px;
-    }
-
-    .brand-table {
-      display: inline-block;
-      width: 100%;
-      margin: 0 0 14px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-      background: #fff;
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
-    }
-
-    .brand-table h2 {
-      margin: 0;
-      padding: 6px 12px;
-      min-height: 38px;
-      background: linear-gradient(90deg, #003f82, #0060af);
-      color: #fff;
-      font-size: 28px;
-      line-height: 1;
-      font-weight: 900;
-      letter-spacing: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .brand-part {
-      font-size: 12px;
-      font-weight: 700;
-      opacity: 0.85;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 17px;
-    }
-
-    th, td {
-      border-right: 1px solid var(--grid);
-      border-bottom: 1px solid var(--grid);
-      padding: 3px 6px;
-      overflow-wrap: anywhere;
-      vertical-align: middle;
-    }
-
-    th:last-child, td:last-child { border-right: 0; }
-
-    th {
-      color: #315c72;
-      background: #fff;
-      text-align: left;
-      font-size: 12px;
-      line-height: 1;
-      font-weight: 800;
-    }
-
-    td:nth-child(1) { font-weight: 800; }
-    td:nth-child(2) { white-space: nowrap; }
-
-    th:nth-child(1), td:nth-child(1) { width: 28%; }
-    th:nth-child(2), td:nth-child(2) { width: 28%; }
-    th:nth-child(3), td:nth-child(3) { width: 32%; }
-    th:nth-child(4), td:nth-child(4) { width: 12%; }
-
-    .size-cell {
-      padding: 2px 4px;
-      text-align: center;
-    }
-
-    .size-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 28px;
-      height: 22px;
-      padding: 0 3px;
-      border-radius: 3px;
-      color: #fff;
-      font-weight: 900;
-      line-height: 1;
-      box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.22);
-    }
-
-    .size-a { background: #1f86c7; }
-    .size-c { background: #c91d31; }
-    .size-h { background: #159aa2; }
-    .size-s { background: #ef9c32; }
-    .size-other { background: #6b7280; }
-
-    @media (max-width: 1200px) {
-      .chart { column-count: min(3, 4); }
-      table { font-size: 15px; }
-      .brand-table h2 { font-size: 24px; }
-    }
-
-    @media (max-width: 760px) {
-      .chart { column-count: 1; padding: 10px; }
-      .hero { padding: 18px 16px 12px; }
-      .hero p { font-size: 12px; }
-      table { font-size: 14px; }
-      th, td { padding: 3px 4px; }
-      .brand-table h2 { font-size: 22px; }
-    }
-
-    @media print {
-      body { background: #fff; }
-      .hero { padding: 12px 18px; }
-      .chart { padding: 8px; column-gap: 8px; }
-      .brand-table { margin-bottom: 8px; box-shadow: none; border: 1px solid #cdd3da; }
-    }
-  </style>
+  <link rel="stylesheet" href="size-chart-template.css">
 </head>
 <body>
   <header class="hero">
@@ -183,9 +13,9 @@
       <p>A custom-like fit is guaranteed for all listed vehicles</p>
     </div>
   </header>
-  <main class="chart">
+  <main class="chart" style="--chart-columns: 4;">
     <section class="brand-table">
-      <h2>ACURA</h2>
+      <h2>ACURA <span class="brand-part">1/2</span></h2>
       <table>
         <thead>
         <tr>
@@ -196,61 +26,82 @@
         </tr>
         </thead>
         <tbody>
-        <tr>
+        <tr class="model-stripe-light">
           <td>ADX</td>
           <td>2025-2026</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-s">S2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
+          <td>ADX</td>
+          <td>2025-2026</td>
+          <td></td>
+          <td class="size-cell"><span class="size-badge size-s">S2</span></td>
+        </tr>
+        <tr class="model-stripe-dark">
           <td>CL</td>
           <td>1997-2003</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-c">C4</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>ILX</td>
           <td>2013-2022</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-a">A1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>Integra</td>
           <td>1986-1993</td>
           <td>Hatchback</td>
           <td class="size-cell"><span class="size-badge size-h">H1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>Integra</td>
           <td>1990-2001</td>
           <td>Sedan</td>
           <td class="size-cell"><span class="size-badge size-a">A1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>Integra</td>
           <td>1994-2001</td>
           <td>Coupe</td>
           <td class="size-cell"><span class="size-badge size-c">C2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>Integra</td>
           <td>2023-2026</td>
           <td>INCL: Type S</td>
           <td class="size-cell"><span class="size-badge size-h">H2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>Legend</td>
           <td>1986-1990</td>
           <td>Sedan</td>
           <td class="size-cell"><span class="size-badge size-a">A2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>Legend</td>
           <td>1987-1995</td>
           <td>Coupe</td>
           <td class="size-cell"><span class="size-badge size-c">C4</span></td>
         </tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="brand-table">
+      <h2>ACURA <span class="brand-part">2/2</span></h2>
+      <table>
+        <thead>
         <tr>
+          <th>MODEL</th>
+          <th>YEAR</th>
+          <th>TYPE</th>
+          <th>SIZE</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr class="model-stripe-light">
           <td>Legend</td>
           <td>1991-1995</td>
           <td>Sedan</td>
@@ -271,31 +122,31 @@
         </tr>
         </thead>
         <tbody>
-        <tr>
+        <tr class="model-stripe-light">
           <td>4C</td>
           <td>2015</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-c">C1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>4C</td>
           <td>2016-2020</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-c">C1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>GIULIA</td>
           <td>2017-2026</td>
           <td>INCL: Quadrifoglio</td>
           <td class="size-cell"><span class="size-badge size-a">A1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>Stelvio</td>
           <td>2018-2026</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-s">S2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>Tonale</td>
           <td>2024-2026</td>
           <td></td>
@@ -316,61 +167,61 @@
         </tr>
         </thead>
         <tbody>
-        <tr>
+        <tr class="model-stripe-light">
           <td>A3</td>
           <td>2006-2013</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-h">H1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>A3 e-tron</td>
           <td>2016-2018</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-h">H1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>A3/S3</td>
           <td>2015-2016</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-a">A1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>A3/S3/RS3</td>
           <td>2017-2026</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-a">A1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>A4</td>
           <td>1996-2003</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-a">A1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>A4 Allroad quattro</td>
           <td>2013-2025</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-h">H2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>A4/S4</td>
           <td>2010-2025</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-a">A2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>Q3</td>
           <td>2015-2026</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-s">S1</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-light">
           <td>Q5/SQ5</td>
           <td>2014-2026</td>
           <td></td>
           <td class="size-cell"><span class="size-badge size-s">S2</span></td>
         </tr>
-        <tr>
+        <tr class="model-stripe-dark">
           <td>Q7/SQ7</td>
           <td>2020-2026</td>
           <td></td>
