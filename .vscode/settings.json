@@ -1,0 +1,5 @@
+{
+    "powerquery.client.additionalSymbolsDirectories": [
+        "d:/Home/Scripts/generate_size_chart_html/.vscode/excel-pq-symbols"
+    ]
+}
