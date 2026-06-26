@@ -1,104 +1,284 @@
 :root {
+  /*
+    CSS 模板说明
+    ------------------------------------------------------------
+    这个文件主要控制“视觉样式”：字体、列宽、对齐、底纹、边框、间距。
+    页面尺寸、分页高度、列数、行高估算等生成逻辑请优先改 prefer.yaml。
+
+    重要：
+    - page_width_px / page_height_px / columns 等由 prefer.yaml 决定。
+    - HTML 生成时会把这些值写成内联 CSS 变量。
+    - 下面标注“通常不要手改”的变量只是兜底默认值。
+  */
+
+  /* =========================
+     建议改：整体颜色和背景
+     ========================= */
+
+  /* 页面背景色：导出图片时整张图的底色。 */
   --page-background: #f3f4f6;
+
+  /* 页面默认文字颜色：没有被字段样式覆盖时使用。 */
   --page-text: #161b22;
-  --hero-background: #062746;
-  --hero-border: #0d5ba6;
-  --hero-badge-background: #094f98;
+
+  /* 品牌标题条背景：每个品牌表顶部蓝色条，例如 ACURA、AUDI。 */
   --brand-title-background: linear-gradient(90deg, #003f82, #0060af);
+
+  /* 品牌标题条文字颜色。 */
   --brand-title-text: #ffffff;
+
+  /* 表格默认背景色。 */
   --table-background: #ffffff;
-  --table-border: #d7dbe0;
-  --table-shadow: rgba(0, 0, 0, 0.08);
-  --table-header-text: #315c72;
+
+  /* 车型分组浅底纹：同一个 MODEL 连续多行会保持同一种底纹。 */
   --row-stripe-light: #ffffff;
+
+  /* 车型分组深底纹：下一个 MODEL 分组切换到这个底纹。 */
   --row-stripe-dark: #f0f2f4;
-  --font-family: Arial, Helvetica, sans-serif;
-  --body-font-size: 14px;
+
+  /* =========================
+     建议改：边框和表格块间距
+     ========================= */
+
+  /* 表格网格线颜色：控制单元格之间的线条颜色。 */
+  --table-border-color: #d7dbe0;
+
+  /* 表格网格线粗细：1px 接近参考图；想更清晰可改 1.5px 或 2px。 */
+  --table-border-width: 2.5px;
+
+  /* 品牌表外轮廓颜色。 */
+  --table-outline-color: rgba(0, 0, 0, 0.08);
+
+  /* 品牌表外轮廓粗细。 */
+  --table-outline-width: 1px;
+
+  /* 品牌表圆角：想要直角表格可以设为 0。 */
+  --table-radius: 15px;
+
+  /* 品牌表之间的纵向间距。若改大，建议同步调 prefer.yaml 的 table_gap_px。 */
+  --brand-block-gap: 14px;
+
+  /* 每个品牌表内部额外 padding。通常保持 0；想让标题和表格离外框更远时再改。 */
+  --brand-block-padding: 0;
+
+  /* 页面内边距：表格整体距离图片边缘的空白。改动后建议同步调 prefer.yaml 的 page_max_height_px。 */
+  --page-padding: 14px;
+
+  /* 页面每列之间的水平间距。 */
+  --column-gap: 14px;
+
+  /* =========================
+     建议改：单元格 padding 和字段对齐
+     ========================= */
+
+  /* 普通单元格上下内边距。字号变大时可适当增加。 */
+  --cell-padding-y: 1px;
+
+  /* 普通单元格左右内边距。 */
+  --cell-padding-x: 5px;
+
+  /* SIZE 单元格上下内边距。 */
+  --size-cell-padding-y: 2px;
+
+  /* SIZE 单元格左右内边距。 */
+  --size-cell-padding-x: 2px;
+
+  /* MODEL 列文字对齐方式：left / center / right。 */
+  --model-align: left;
+
+  /* YEAR 列文字对齐方式。 */
+  --year-align: center;
+
+  /* TYPE 列文字对齐方式。 */
+  --type-align: left;
+
+  /* SIZE 列文字和徽标对齐方式。 */
+  --size-align: center;
+
+  /* =========================
+     建议改：列宽
+     ========================= */
+
+  /* MODEL 列宽。四列加起来建议等于 100%。 */
+  --model-col-width: 30%;
+
+  /* YEAR 列宽。 */
+  --year-col-width: 25%;
+
+  /* TYPE 列宽。 */
+  --type-col-width: 30%;
+
+  /* SIZE 列宽。 */
+  --size-col-width: 15%;
+
+  /* =========================
+     建议改：各字段字体
+     ========================= */
+
+  /* 全局兜底字体。字段没有单独指定时使用。 */
+  --base-font-family: Arial, Helvetica, sans-serif;
+
+  /* 品牌标题字体。 */
+  --brand-font-family: Arial, Helvetica, sans-serif;
+  --brand-font-size: 25px;
+  --brand-font-weight: 900;
+
+  /* 表头字体：MODEL / YEAR / TYPE / SIZE。 */
+  --header-font-family: Arial, Helvetica, sans-serif;
   --header-font-size: 12px;
-  --brand-font-size: 28px;
-  --hero-title-size: clamp(34px, 5vw, 58px);
-  --cell-padding-y: 3px;
-  --cell-padding-x: 6px;
-  --table-radius: 6px;
-  --chart-gap: 14px;
-  --chart-padding: 14px;
+  --header-font-weight: 800;
+  --header-text-color: #315c72;
+
+  /* MODEL 字段字体。 */
+  --model-font-family: Arial, Helvetica, sans-serif;
+  --model-font-size: 12px;
+  --model-font-weight: 800;
+
+  /* YEAR 字段字体。 */
+  --year-font-family: Arial, Helvetica, sans-serif;
+  --year-font-size: 12px;
+  --year-font-weight: 400;
+
+  /* TYPE 字段字体。 */
+  --type-font-family: Arial, Helvetica, sans-serif;
+  --type-font-size: 12px;
+  --type-font-weight: 400;
+
+  /* SIZE 字段字体，也会作用于彩色徽标内文字。 */
+  --size-font-family: Arial, Helvetica, sans-serif;
+  --size-font-size: 14px;
+  --size-font-weight: 900;
+
+  /* =========================
+     建议改：SIZE 徽标
+     ========================= */
+
+  /* SIZE 徽标最小宽度。 */
+  --size-badge-min-width: 28px;
+
+  /* SIZE 徽标高度。 */
+  --size-badge-height: 22px;
+
+  /* SIZE 徽标圆角。 */
+  --size-badge-radius: 3px;
+
+  /* A/C/H/S 各类尺寸徽标颜色。 */
   --size-a-background: #1f86c7;
   --size-c-background: #c91d31;
   --size-h-background: #159aa2;
   --size-s-background: #ef9c32;
   --size-other-background: #6b7280;
+
+  /* =========================
+     通常不要手改：由 prefer.yaml / 生成脚本决定
+     ========================= */
+
+  /* 输出页面宽度。生成 HTML 时会覆盖为 prefer.yaml 的 page_width_px。 */
+  --page-width: 2000px;
+
+  /* 输出页面高度。生成 HTML 时会覆盖为 prefer.yaml 的 page_height_px。 */
+  --page-height: 1800px;
+
+  /* 每页列数。生成 HTML 时会覆盖为 prefer.yaml 的 columns。 */
+  --chart-columns: 4;
+
+  /* 每列可用高度。生成 HTML 时会覆盖为 prefer.yaml 的 page_max_height_px。 */
+  --page-max-height: 1772px;
+
+  /* 品牌标题条高度。生成 HTML 时会覆盖为 prefer.yaml 的 brand_title_height_px。 */
+  --brand-title-height: 38px;
+
+  /* 表头高度。生成 HTML 时会覆盖为 prefer.yaml 的 table_header_height_px。 */
+  --table-header-height: 22px;
+
+  /* 数据行高度。生成 HTML 时会覆盖为 prefer.yaml 的 table_row_height_px。 */
+  --table-row-height: 25px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  min-width: var(--page-width);
   background: var(--page-background);
   color: var(--page-text);
-  font-family: var(--font-family);
+  font-family: var(--base-font-family);
 }
 
-.hero {
-  background: var(--hero-background);
+.chart-title-block {
+  display: none;
+}
+
+.chart-title-block.is-visible {
+  display: block;
+  width: var(--page-width);
+  padding: 8px 14px;
+  background: var(--brand-title-background);
   color: #fff;
-  padding: 22px 28px 16px;
-  border-bottom: 10px solid var(--hero-border);
 }
 
-.hero h1 {
+.chart-title-block h1,
+.chart-title-block p {
   margin: 0;
-  font-size: var(--hero-title-size);
-  line-height: 0.95;
-  letter-spacing: 0;
-  font-weight: 900;
 }
 
-.hero h1 span {
-  font-size: 0.72em;
-  font-weight: 700;
+.chart-title-block h1 {
+  font-size: 18px;
+  line-height: 1.1;
 }
 
-.hero p {
-  display: inline-block;
-  margin: 18px 0 0;
-  padding: 8px 18px;
-  background: var(--hero-badge-background);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
-  text-transform: uppercase;
-  font-weight: 800;
-  font-size: 16px;
+.chart-title-block p {
+  margin-top: 2px;
+  font-size: 12px;
 }
 
-.chart {
-  column-count: var(--chart-columns, 4);
-  column-gap: var(--chart-gap);
-  padding: var(--chart-padding);
+.chart-page {
+  width: var(--page-width);
+  height: var(--page-height);
+  padding: var(--page-padding);
+  overflow: hidden;
+  background: var(--page-background);
+}
+
+.chart-columns {
+  display: grid;
+  grid-template-columns: repeat(var(--chart-columns), minmax(0, 1fr));
+  gap: var(--column-gap);
+  align-items: start;
+  height: var(--page-max-height);
+}
+
+.chart-column {
+  height: var(--page-max-height);
+  overflow: hidden;
 }
 
 .brand-table {
-  display: inline-block;
+  display: block;
   width: 100%;
-  margin: 0 0 var(--chart-gap);
+  margin: 0 0 var(--brand-block-gap);
+  padding: var(--brand-block-padding);
   break-inside: avoid;
   page-break-inside: avoid;
   background: var(--table-background);
   border-radius: var(--table-radius);
   overflow: hidden;
-  box-shadow: 0 0 0 1px var(--table-shadow);
+  box-shadow: 0 0 0 var(--table-outline-width) var(--table-outline-color);
 }
 
 .brand-table h2 {
   margin: 0;
   padding: 6px 12px;
-  min-height: 38px;
+  min-height: var(--brand-title-height);
   background: var(--brand-title-background);
   color: var(--brand-title-text);
+  font-family: var(--brand-font-family);
   font-size: var(--brand-font-size);
+  font-weight: var(--brand-font-weight);
   line-height: 1;
-  font-weight: 900;
   letter-spacing: 0;
   display: flex;
   align-items: center;
@@ -116,13 +296,12 @@ table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: var(--body-font-size);
 }
 
 th,
 td {
-  border-right: 1px solid var(--table-border);
-  border-bottom: 1px solid var(--table-border);
+  border-right: var(--table-border-width) solid var(--table-border-color);
+  border-bottom: var(--table-border-width) solid var(--table-border-color);
   padding: var(--cell-padding-y) var(--cell-padding-x);
   overflow-wrap: anywhere;
   vertical-align: middle;
@@ -134,12 +313,17 @@ td:last-child {
 }
 
 th {
-  color: var(--table-header-text);
+  height: var(--table-header-height);
+  color: var(--header-text-color);
   background: var(--table-background);
-  text-align: left;
+  font-family: var(--header-font-family);
   font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
   line-height: 1;
-  font-weight: 800;
+}
+
+tbody tr {
+  height: var(--table-row-height);
 }
 
 tbody tr.model-stripe-light td {
@@ -150,49 +334,65 @@ tbody tr.model-stripe-dark td {
   background: var(--row-stripe-dark);
 }
 
-td:nth-child(1) {
-  font-weight: 800;
-}
-
-td:nth-child(2) {
-  white-space: nowrap;
-}
-
 th:nth-child(1),
 td:nth-child(1) {
-  width: 28%;
+  width: var(--model-col-width);
+  text-align: var(--model-align);
 }
 
 th:nth-child(2),
 td:nth-child(2) {
-  width: 28%;
+  width: var(--year-col-width);
+  text-align: var(--year-align);
 }
 
 th:nth-child(3),
 td:nth-child(3) {
-  width: 32%;
+  width: var(--type-col-width);
+  text-align: var(--type-align);
 }
 
 th:nth-child(4),
 td:nth-child(4) {
-  width: 12%;
+  width: var(--size-col-width);
+  text-align: var(--size-align);
+}
+
+td:nth-child(1) {
+  font-family: var(--model-font-family);
+  font-size: var(--model-font-size);
+  font-weight: var(--model-font-weight);
+}
+
+td:nth-child(2) {
+  font-family: var(--year-font-family);
+  font-size: var(--year-font-size);
+  font-weight: var(--year-font-weight);
+  white-space: nowrap;
+}
+
+td:nth-child(3) {
+  font-family: var(--type-font-family);
+  font-size: var(--type-font-size);
+  font-weight: var(--type-font-weight);
 }
 
 .size-cell {
-  padding: 2px 4px;
-  text-align: center;
+  padding: var(--size-cell-padding-y) var(--size-cell-padding-x);
 }
 
 .size-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 22px;
+  min-width: var(--size-badge-min-width);
+  height: var(--size-badge-height);
   padding: 0 3px;
-  border-radius: 3px;
+  border-radius: var(--size-badge-radius);
   color: #fff;
-  font-weight: 900;
+  font-family: var(--size-font-family);
+  font-size: var(--size-font-size);
+  font-weight: var(--size-font-weight);
   line-height: 1;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.22);
 }
@@ -217,65 +417,13 @@ td:nth-child(4) {
   background: var(--size-other-background);
 }
 
-@media (max-width: 1200px) {
-  .chart {
-    column-count: min(3, var(--chart-columns, 4));
-  }
-
-  table {
-    font-size: 15px;
-  }
-
-  .brand-table h2 {
-    font-size: 24px;
-  }
-}
-
-@media (max-width: 760px) {
-  .chart {
-    column-count: 1;
-    padding: 10px;
-  }
-
-  .hero {
-    padding: 18px 16px 12px;
-  }
-
-  .hero p {
-    font-size: 12px;
-  }
-
-  table {
-    font-size: 14px;
-  }
-
-  th,
-  td {
-    padding: 3px 4px;
-  }
-
-  .brand-table h2 {
-    font-size: 22px;
-  }
-}
-
 @media print {
   body {
     background: #fff;
   }
 
-  .hero {
-    padding: 12px 18px;
-  }
-
-  .chart {
-    padding: 8px;
-    column-gap: 8px;
-  }
-
-  .brand-table {
-    margin-bottom: 8px;
-    box-shadow: none;
-    border: 1px solid #cdd3da;
+  .chart-page {
+    break-after: page;
+    page-break-after: always;
   }
 }
