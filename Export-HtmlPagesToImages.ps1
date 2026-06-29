@@ -24,7 +24,10 @@ param(
     [string]$Format = "jpg",
 
     # 保留 Edge 截图得到的 PNG。PNG 是真正无损格式。
-    [switch]$KeepPng
+    [switch]$KeepPng,
+
+    # 显式分析自动缩小字体并写出 fit-text-summary.log。默认不分析。
+    [switch]$AnalysisFont
 )
 
 Set-StrictMode -Version Latest
@@ -194,6 +197,7 @@ $normalizedFormat = $Format.ToLowerInvariant()
 if ($normalizedFormat -eq "jpeg") {
     $normalizedFormat = "jpg"
 }
+$jpegNameSuffix = if ($quality -ne 100) { "_q$quality" } else { "" }
 $htmlFiles = @(Get-ChildItem -Path $HtmlGlob | Sort-Object Name)
 if ($htmlFiles.Count -eq 0) {
     throw "No HTML files matched: $HtmlGlob"
@@ -214,15 +218,17 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 $OutputDir = (Resolve-Path $OutputDir).Path
 $fitTextLogPath = Join-Path $OutputDir "fit-text-summary.log"
-Set-Content -Path $fitTextLogPath -Value @(
-    "字体自动缩小汇总"
-    "生成时间：$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-    "HTML：$HtmlGlob"
-    "输出格式：$normalizedFormat"
-    "输出尺寸：${Width}x${Height}"
-    "JPEG质量：$quality"
-    ""
-) -Encoding UTF8
+if ($AnalysisFont) {
+    Set-Content -Path $fitTextLogPath -Value @(
+        "字体自动缩小汇总"
+        "生成时间：$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        "HTML：$HtmlGlob"
+        "输出格式：$normalizedFormat"
+        "输出尺寸：${Width}x${Height}"
+        "JPEG质量：$quality"
+        ""
+    ) -Encoding UTF8
+}
 
 $edgePath = Get-EdgePath
 $userDataDir = Join-Path ([System.IO.Path]::GetTempPath()) ("size-chart-edge-" + [guid]::NewGuid().ToString("N"))
@@ -232,12 +238,16 @@ try {
     foreach ($htmlFile in $htmlFiles) {
         $baseName = [System.IO.Path]::GetFileNameWithoutExtension($htmlFile.Name)
         $pngPath = Join-Path $OutputDir ($baseName + ".png")
-        $jpgPath = Join-Path $OutputDir ($baseName + ".jpg")
+        $jpgPath = Join-Path $OutputDir ($baseName + $jpegNameSuffix + ".jpg")
         $fileUrl = (New-Object System.Uri($htmlFile.FullName)).AbsoluteUri
 
         $arguments = @(
             "--headless=new",
             "--disable-gpu",
+            "--disable-extensions",
+            "--disable-component-update",
+            "--no-first-run",
+            "--no-default-browser-check",
             "--hide-scrollbars",
             "--force-device-scale-factor=1",
             "--window-size=$Width,$Height",
@@ -268,7 +278,9 @@ try {
             [void]$writtenPaths.Add($pngPath)
         }
 
-        Write-FitTextSummary -HtmlFile $htmlFile -EdgePath $edgePath -Width $Width -Height $Height -LogPath $fitTextLogPath
+        if ($AnalysisFont) {
+            Write-FitTextSummary -HtmlFile $htmlFile -EdgePath $edgePath -Width $Width -Height $Height -LogPath $fitTextLogPath
+        }
         if ($normalizedFormat -ne "png" -and $normalizedFormat -ne "both" -and -not $KeepPng) {
             Remove-Item -LiteralPath $pngPath
         }

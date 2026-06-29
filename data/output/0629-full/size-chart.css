@@ -32,21 +32,21 @@
   --cab-align: center;
   --bed-align: center;
   --size-align: center;
-  --model-col-width: 30%;
-  --year-col-width: 20%;
+  --model-col-width: 25%;
+  --year-col-width: 25%;
   --type-col-width: 35%;
-  --cab-col-width: 40%;
+  --cab-col-width: 20%;
   --bed-col-width: 20%;
   --size-col-width: 15%;
   --base-font-family: D-DIN-PRO, sans-serif;
-  --make-font-family: Arial, Helvetica, sans-serif;
+  --make-font-family: D-DIN-PRO, Helvetica, sans-serif;
   --make-font-size: 25px;
   --make-font-weight: 700;
   --brand-padding-y: 5px;
   --brand-padding-x: 10px;
   --brand-title-transform: uppercase;
   --brand-title-align: center;
-  --description-font-family: Arial, Helvetica, sans-serif;
+  --description-font-family: D-DIN-PRO, Helvetica, sans-serif;
   --description-font-size: 15px;
   --description-font-weight: 400;
   --description-text: #ffffff;
@@ -85,9 +85,20 @@
   --size-other-background: #6b7280;
 }
 
+.profile-non-pickup {
+  --model-col-width: 30%;
+  --year-col-width: 25%;
+  --type-col-width: 30%;
+  --size-col-width: 15%;
+}
+
 .profile-pickup {
   --brand-title-background: #d57b32;
   --brand-title-text: #ffffff;
+  --year-col-width: 25%;
+  --cab-col-width: 40%;
+  --bed-col-width: 20%;
+  --size-col-width: 15%;
   --make-font-family: D-DIN-PRO, Helvetica, sans-serif;
   --brand-title-align: left;
   --description-font-family: D-DIN-PRO, Helvetica, sans-serif;

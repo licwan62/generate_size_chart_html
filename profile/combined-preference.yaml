@@ -6,15 +6,17 @@ show_title: false
 # 合并输出的数据配置。
 non_pickup_stripe_column: MODEL
 non_pickup_make_column: MAKE
-non_pickup_model_column: SHORT-MODEL MODEL
-non_pickup_type_column: TYPE LONG-TYPE
+non_pickup_model_column: SHORT-MODEL
+non_pickup_type_column: TYPE
+non_pickup_size_column: SIZE
 pickup_brand_column:
 pickup_stripe_column: CAB
 pickup_table_columns:
-pickup_model_column: SHORT-MODEL MODEL
-pickup_cab_column: SHORT-CAB CAB
+pickup_model_column: SHORT-MODEL
+pickup_cab_column: SHORT-CAB
 
 # 分页规则。
+profile_page_mode: new-page #same-page new-page
 page_bottom_safe_margin_px: 10
 max_rows: 0
 min_rows_per_brand_chunk: 2
@@ -65,22 +67,30 @@ bed_align: center
 size_align: center
 
 # 列宽。
-model_col_width: 30%
-year_col_width: 20%
-type_col_width: 35%
-cab_col_width: 40%
-bed_col_width: 20%
-size_col_width: 15%
+nonpick_model_col_width: 30%
+nonpick_year_col_width: 25%
+nonpick_type_col_width: 30%
+nonpick_size_col_width: 15%
+pick_year_col_width: 25%
+pick_cab_col_width: 40%
+pick_bed_col_width: 20%
+pick_size_col_width: 15%
 
 # 字体。
 base_font_family: D-DIN-PRO, sans-serif
-make_font_family: Arial, Helvetica, sans-serif
+make_font_family: D-DIN-PRO, Helvetica, sans-serif
 make_font_size: 25px
 make_font_weight: 700
 brand_padding_x: 10px
 brand_title_transform: uppercase
-brand_title_align: center
-description_font_family: Arial, Helvetica, sans-serif
+brand_title_align: left
+brand_logo_enabled: true
+brand_logo_dir: img_logos
+brand_logo_opacity: 0.8
+brand_logo_width: 46px
+brand_logo_height: 32px
+brand_logo_right: 10px
+description_font_family: D-DIN-PRO, Helvetica, sans-serif
 description_font_size: 15px
 description_font_weight: 400
 description_text: #ffffff
@@ -95,12 +105,15 @@ header_padding_y: 1px
 header_padding_x: 5px
 header_text_transform: uppercase
 header_align: center
+model_header_align: left
+type_header_align: left
 cell_font_family: D-DIN-PRO, Helvetica, sans-serif
 cell_font_size: 18px
 cell_font_weight: 400
 badge_font_family: D-DIN-PRO, Helvetica, sans-serif
-badge_font_size: 18px
+badge_font_size: 20px
 badge_font_weight: 700
+badge_letter_spacing: 1.5px
 fit_text_min_font_size: 7px
 
 # 皮卡字体覆盖。

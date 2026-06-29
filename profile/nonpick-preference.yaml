@@ -71,6 +71,12 @@ make_font_weight: 700
 brand_padding_x: 10px
 brand_title_transform: uppercase
 brand_title_align: center
+brand_logo_enabled: true
+brand_logo_dir: img_logos
+brand_logo_opacity: 0.8
+brand_logo_width: 46px
+brand_logo_height: 32px
+brand_logo_right: 10px
 description_font_family: Arial, Helvetica, sans-serif
 description_font_size: 14px
 description_font_weight: 400
@@ -86,12 +92,15 @@ header_padding_y: 1px
 header_padding_x: 5px
 header_text_transform: uppercase
 header_align: center
+model_header_align: left
+type_header_align: left
 cell_font_family: D-DIN-PRO, Helvetica, sans-serif
 cell_font_size: 18px
 cell_font_weight: 400
 badge_font_family: D-DIN-PRO, Helvetica, sans-serif
 badge_font_size: 18px
 badge_font_weight: 700
+badge_letter_spacing: 1.5px
 fit_text_min_font_size: 7px
 
 # SIZE 徽标。

@@ -50,20 +50,34 @@ python .\tsv_to_size_chart_html.py `
 导出图片：
 
 ```powershell
-python .\export_html_pages_to_images.py .\data\output\0629-full\output_*.html
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Export-HtmlPagesToImages.ps1 .\data\output\0629-full\output_*.html
 ```
+
+`Export-HtmlPagesToImages.ps1` 的基础用法是把一组分页 HTML 导出成图片：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Export-HtmlPagesToImages.ps1 <HTML匹配规则>
+```
+
+例如：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Export-HtmlPagesToImages.ps1 .\data\output\0629-full\output_*.html
+```
+
+不指定其他参数时，脚本会读取 HTML 同目录的 `size-chart.css`，用其中的 `--page-width` 和 `--page-height` 作为截图尺寸，默认导出 jpg 到 `image/<HTML输出目录名>/`。
 
 导出时指定格式、质量和位置：
 
 ```powershell
-python .\export_html_pages_to_images.py `
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Export-HtmlPagesToImages.ps1 `
   .\data\output\0629-full\output_*.html `
-  --format jpg `
-  --quality 90 `
-  --output-dir .\image\0629-full
+  -Format jpg `
+  -Quality 90 `
+  -OutputDir .\image\0629-full
 ```
 
-`--format` 可选 `jpg`、`png`、`both`。`--quality` 只影响 jpg；png 是无损截图。默认只输出 `Wrote ...`。需要检查自动缩小时，加 `--analysis-font`。
+`-Format` 可选 `jpg`、`png`、`both`。`-Quality` 只影响 jpg；png 是无损截图。默认只输出 `Wrote ...`。需要检查自动缩小时，加 `-AnalysisFont`。
 
 ## 常用参数
 
@@ -121,27 +135,27 @@ python .\export_html_pages_to_images.py `
 
 ## 导出图片参数
 
-`--output-dir .\image\name`
+`-OutputDir .\image\name`
 
 指定图片输出目录。不传时默认输出到 `image/<HTML输出目录名>/`。
 
-`--format jpg`
+`-Format jpg`
 
 指定输出格式。可用 `jpg`、`png`、`both`，默认 `jpg`。
 
-`--quality 90` / `--jpeg-quality 90`
+`-Quality 90` / `-JpegQuality 90`
 
-指定 jpg 质量，范围 1-100，默认 100。
+指定 jpg 质量，范围 1-100，默认 100。质量不是 100 时，jpg 文件名会自动加质量后缀，例如 `output_001_q80.jpg`。
 
-`--keep-png`
+`-KeepPng`
 
 输出 jpg 时额外保留浏览器截图得到的 png。
 
-`--width 2000` / `--height 1800`
+`-Width 2000` / `-Height 1800`
 
 指定截图尺寸。不传时读取 HTML 同目录 `size-chart.css` 里的 `--page-width` 和 `--page-height`。
 
-`--analysis-font`
+`-AnalysisFont`
 
 显式分析每个 HTML 页面的字体自动缩小统计，并写到图片输出目录下的 `fit-text-summary.log`。默认不做这个检查。
 
@@ -191,18 +205,24 @@ make_padding_y: 5px
 description_font_size: 14px
 cell_font_size: 18px
 badge_font_size: 18px
+badge_letter_spacing: 1.5px
+model_header_align: left
+type_header_align: left
 table_row_height_px: 25
 brand_block_gap_px: 14
 ```
 
-合并 profile 里可以用 `non_pickup_` 和 `pickup_` 前缀分别覆盖配置，例如：
+合并 profile 里可以用 `non_pickup_` / `pickup_` 前缀分别覆盖配置，也可以用短前缀 `nonpick_` / `pick_`。没有前缀的配置作为两类共用默认值。
 
 ```yaml
+profile_page_mode: same-page   # same-page 或 new-page
 non_pickup_stripe_column: MODEL
 pickup_stripe_column: CAB
 pickup_description_font_size: 20px
 non_pickup_model_column: SHORT-MODEL MODEL
 pickup_cab_column: SHORT-CAB CAB
+nonpick_year_col_width: 20%
+pick_year_col_width: 20%
 ```
 
 ## CSS 回写 YAML

@@ -11,9 +11,23 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 from datetime import datetime
 from pathlib import Path
+
+
+CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+def quiet_subprocess_kwargs() -> dict[str, object]:
+    if sys.platform != "win32":
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return {
+        "creationflags": CREATE_NO_WINDOW,
+        "startupinfo": startupinfo,
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -129,12 +143,14 @@ def resolve_html_files(pattern: str) -> list[Path]:
 def run_browser_screenshot(browser: Path, html_file: Path, png_path: Path, width: int, height: int) -> None:
     with tempfile.TemporaryDirectory(prefix="size-chart-browser-") as user_data_dir:
         file_url = html_file.resolve().as_uri()
-        stdout_log = png_path.with_suffix(".browser.out.log")
-        stderr_log = png_path.with_suffix(".browser.err.log")
         args = [
             str(browser),
             "--headless=new",
             "--disable-gpu",
+            "--disable-extensions",
+            "--disable-component-update",
+            "--no-first-run",
+            "--no-default-browser-check",
             "--hide-scrollbars",
             "--force-device-scale-factor=1",
             f"--window-size={width},{height}",
@@ -142,26 +158,16 @@ def run_browser_screenshot(browser: Path, html_file: Path, png_path: Path, width
             f"--screenshot={png_path}",
             file_url,
         ]
-        with stdout_log.open("w", encoding="utf-8") as stdout, stderr_log.open("w", encoding="utf-8") as stderr:
-            result = subprocess.run(args, stdout=stdout, stderr=stderr, check=False)
+        result = subprocess.run(
+            args,
+            text=True,
+            capture_output=True,
+            check=False,
+            **quiet_subprocess_kwargs(),
+        )
         if result.returncode != 0 or not png_path.exists():
-            log_text = ""
-            if stdout_log.exists():
-                log_text += stdout_log.read_text(encoding="utf-8", errors="ignore")
-            if stderr_log.exists():
-                log_text += stderr_log.read_text(encoding="utf-8", errors="ignore")
+            log_text = "\n".join(part for part in (result.stdout, result.stderr) if part)
             raise RuntimeError(f"Browser screenshot failed for {html_file.name}.\n{log_text}")
-        remove_with_retry(stdout_log)
-        remove_with_retry(stderr_log)
-
-
-def remove_with_retry(path: Path, attempts: int = 10, delay_seconds: float = 0.2) -> None:
-    for _attempt in range(attempts):
-        try:
-            path.unlink(missing_ok=True)
-            return
-        except OSError:
-            time.sleep(delay_seconds)
 
 
 def convert_png_to_jpeg(png_path: Path, jpeg_path: Path, quality: int) -> None:
@@ -193,6 +199,7 @@ def convert_png_to_jpeg(png_path: Path, jpeg_path: Path, quality: int) -> None:
         text=True,
         capture_output=True,
         check=False,
+        **quiet_subprocess_kwargs(),
     )
     if result.returncode != 0:
         raise RuntimeError(f"JPEG conversion failed for {png_path.name}.\n{result.stderr or result.stdout}")
@@ -219,6 +226,7 @@ def fit_text_summary(html_file: Path, browser: Path, width: int, height: int) ->
         text=True,
         capture_output=True,
         check=False,
+        **quiet_subprocess_kwargs(),
     )
     if result.returncode != 0 or not result.stdout.strip():
         return {"error": f"字体自动缩小汇总失败：{html_file.name}。"}

@@ -13,10 +13,13 @@ import argparse
 import copy
 import csv
 import html
+import os
 import re
 import sys
 from collections import OrderedDict
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 from typing import Iterable
 
 
@@ -28,7 +31,8 @@ DEFAULT_COLUMN_SOURCES = {
     "non_pickup": {
         "MAKE": ["MAKE"],
         "MODEL": ["SHORT-MODEL", "MODEL"],
-        "TYPE": ["TYPE", "LONG-TYPE"],
+        "TYPE": ["TYPE", "LONG-TYPE", "CONST"],
+        "SIZE": ["SIZE", "BACKSIZE"],
     },
     "pickup": {
         "TITLE": ["TITLE"],
@@ -36,6 +40,10 @@ DEFAULT_COLUMN_SOURCES = {
         "CAB": ["SHORT-CAB", "CAB"],
     },
     "generic": {},
+}
+PROFILE_DEFAULT_FIELDS = {
+    "non_pickup": ("MAKE", NON_PICKUP_COLUMNS),
+    "pickup": ("TITLE", PICKUP_COLUMNS),
 }
 
 CHART_CSS = r"""
@@ -114,6 +122,7 @@ body {
 }
 
 .brand-table h2 {
+  position: relative;
   margin: 0;
   padding: var(--brand-padding-y) var(--brand-padding-x);
   background: var(--brand-title-background);
@@ -132,9 +141,14 @@ body {
   text-transform: var(--brand-title-transform);
 }
 
+.brand-table h2.has-brand-logo {
+  padding-right: calc(var(--brand-logo-width) + var(--brand-logo-right) + var(--brand-padding-x));
+}
+
 .brand-title-main {
   display: block;
   width: 100%;
+  z-index: 1;
 }
 
 .brand-title-description {
@@ -147,6 +161,19 @@ body {
   font-weight: var(--description-font-weight);
   line-height: var(--page-line-height);
   text-transform: var(--description-text-transform);
+  z-index: 1;
+}
+
+.brand-title-logo {
+  position: absolute;
+  top: 50%;
+  right: var(--brand-logo-right);
+  width: var(--brand-logo-width);
+  height: var(--brand-logo-height);
+  object-fit: contain;
+  opacity: var(--brand-logo-opacity);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .brand-part {
@@ -286,6 +313,30 @@ thead th:nth-child(5) {
   text-align: var(--header-align) !important;
 }
 
+thead th.col-model {
+  text-align: var(--model-header-align) !important;
+}
+
+thead th.col-year {
+  text-align: var(--year-header-align) !important;
+}
+
+thead th.col-type {
+  text-align: var(--type-header-align) !important;
+}
+
+thead th.col-cab {
+  text-align: var(--cab-header-align) !important;
+}
+
+thead th.col-bed {
+  text-align: var(--bed-header-align) !important;
+}
+
+thead th.col-size {
+  text-align: var(--size-header-align) !important;
+}
+
 tbody td,
 tbody td:nth-child(1),
 tbody td:nth-child(2),
@@ -319,6 +370,7 @@ tbody td {
   font-family: var(--badge-font-family, var(--size-font-family));
   font-size: var(--badge-font-size, var(--size-font-size));
   font-weight: var(--badge-font-weight, var(--size-font-weight));
+  letter-spacing: var(--badge-letter-spacing);
   line-height: var(--page-line-height);
   background: var(--size-badge-background);
   box-shadow: var(--size-badge-shadow);
@@ -411,6 +463,10 @@ CSS_CONFIG = [
     ("description_text_transform", "description-text-transform", "none", ""),
     ("brand_part_font_size", "brand-part-font-size", "20px", "px"),
     ("brand_part_align", "brand-part-align", "center", ""),
+    ("brand_logo_opacity", "brand-logo-opacity", "0.8", ""),
+    ("brand_logo_width", "brand-logo-width", "46px", "px"),
+    ("brand_logo_height", "brand-logo-height", "32px", "px"),
+    ("brand_logo_right", "brand-logo-right", "10px", "px"),
     ("header_font_family", "header-font-family", "D-DIN-PRO, Helvetica, sans-serif", ""),
     ("header_font_size", "header-font-size", "20px", "px"),
     ("header_font_weight", "header-font-weight", "600", ""),
@@ -418,12 +474,19 @@ CSS_CONFIG = [
     ("header_padding_x", "header-padding-x", "5px", "px"),
     ("header_text_transform", "header-text-transform", "uppercase", ""),
     ("header_align", "header-align", "center", ""),
+    ("model_header_align", "model-header-align", "var(--header-align)", ""),
+    ("year_header_align", "year-header-align", "var(--header-align)", ""),
+    ("type_header_align", "type-header-align", "var(--header-align)", ""),
+    ("cab_header_align", "cab-header-align", "var(--header-align)", ""),
+    ("bed_header_align", "bed-header-align", "var(--header-align)", ""),
+    ("size_header_align", "size-header-align", "var(--header-align)", ""),
     ("cell_font_family", "cell-font-family", "D-DIN-PRO, Helvetica, sans-serif", ""),
     ("cell_font_size", "cell-font-size", "18px", "px"),
     ("cell_font_weight", "cell-font-weight", "400", ""),
     ("badge_font_family", "badge-font-family", "D-DIN-PRO, Helvetica, sans-serif", ""),
     ("badge_font_size", "badge-font-size", "18px", "px"),
     ("badge_font_weight", "badge-font-weight", "900", ""),
+    ("badge_letter_spacing", "badge-letter-spacing", "0", ""),
     ("fit_text_min_font_size", "fit-text-min-font-size", "7px", "px"),
     ("size_badge_width", "size-badge-width", "100%", ""),
     ("size_badge_min_width", "size-badge-min-width", "0", "px"),
@@ -484,6 +547,12 @@ def parse_args() -> argparse.Namespace:
         "--order",
         default="non-pickup,pickup",
         help="Combined output order: non-pickup,pickup or pickup,non-pickup.",
+    )
+    parser.add_argument(
+        "--profile-page-mode",
+        choices=("same-page", "new-page"),
+        default="same-page",
+        help="When combined inputs switch between non-pickup and pickup, continue on the same page or start a new page. Default: same-page.",
     )
     parser.add_argument(
         "--config-path",
@@ -670,8 +739,22 @@ def css_value_from_config(config: dict[str, str], key: str, default: str, unit: 
     return value
 
 
-def profile_config_key(profile_key: str, key: str) -> str:
-    return f"{profile_key.replace('-', '_')}_{key}"
+def profile_config_prefixes(profile_key: str) -> list[str]:
+    normalized = profile_key.replace("-", "_")
+    aliases = {
+        "non_pickup": ["non_pickup_", "nonpick_"],
+        "pickup": ["pickup_", "pick_"],
+    }
+    return aliases.get(normalized, [f"{normalized}_"])
+
+
+def profile_config_values(config: dict[str, str], profile_key: str, key: str) -> list[str]:
+    values = []
+    for prefix in profile_config_prefixes(profile_key):
+        value = config.get(f"{prefix}{key}", "").strip()
+        if value:
+            values.append(value)
+    return values
 
 
 def css_variables_from_config(config: dict[str, str]) -> dict[str, str]:
@@ -683,10 +766,10 @@ def css_variables_from_config(config: dict[str, str]) -> dict[str, str]:
 
 def config_for_profile(config: dict[str, str], profile_key: str) -> dict[str, str]:
     merged = dict(config)
-    prefix = f"{profile_key.replace('-', '_')}_"
-    for key, value in config.items():
-        if key.startswith(prefix):
-            merged[key[len(prefix) :]] = value
+    for prefix in reversed(profile_config_prefixes(profile_key)):
+        for key, value in config.items():
+            if key.startswith(prefix):
+                merged[key[len(prefix) :]] = value
     return merged
 
 
@@ -705,10 +788,10 @@ def write_chart_css(path: Path, config: dict[str, str]) -> None:
     ):
         scoped_lines = []
         for key, css_name, default, unit in CSS_CONFIG:
-            scoped_key = profile_config_key(profile_key, key)
-            if scoped_key in config and config[scoped_key] != "":
+            scoped_value = next(iter(profile_config_values(config, profile_key, key)), "")
+            if scoped_value:
                 scoped_lines.append(
-                    f"  --{css_name}: {css_value_from_config(config, scoped_key, default, unit)};"
+                    f"  --{css_name}: {css_value_from_config({key: scoped_value}, key, default, unit)};"
                 )
         if scoped_lines:
             lines.append("")
@@ -772,6 +855,12 @@ def apply_config(args: argparse.Namespace) -> argparse.Namespace:
     if "table_columns" in config and "--table-columns" not in cli_options and config["table_columns"]:
         args.table_columns = config["table_columns"]
 
+    if "profile_page_mode" in config and "--profile-page-mode" not in cli_options:
+        profile_page_mode = config["profile_page_mode"].strip()
+        if profile_page_mode not in {"same-page", "new-page"}:
+            raise ValueError("profile_page_mode must be same-page or new-page.")
+        args.profile_page_mode = profile_page_mode
+
     if "show_title" in config and "--show-title" not in cli_options:
         args.show_title = config["show_title"].lower() in {"true", "yes", "1"}
 
@@ -801,12 +890,24 @@ def configured_column_sources(
     defaults: list[str],
 ) -> list[str]:
     key = f"{target_column.lower()}_column"
-    value = config.get(profile_config_key(profile_key, key), "").strip()
+    value = next(iter(profile_config_values(config, profile_key, key)), "")
     if not value:
         value = config.get(key, "").strip()
     if value:
         return parse_column_sources(value)
     return defaults
+
+
+def configured_column_source_value(
+    config: dict[str, str],
+    profile_key: str,
+    target_column: str,
+) -> str:
+    key = f"{target_column.lower()}_column"
+    value = next(iter(profile_config_values(config, profile_key, key)), "")
+    if value:
+        return value
+    return config.get(key, "").strip()
 
 
 def apply_column_sources(
@@ -828,6 +929,23 @@ def apply_column_sources(
             else:
                 row[target_column] = ""
     return normalized_columns
+
+
+def missing_configured_source_columns(
+    config: dict[str, str],
+    profile_key: str,
+    input_columns: set[str],
+    target_columns: Iterable[str],
+) -> list[str]:
+    missing: list[str] = []
+    for target_column in target_columns:
+        value = configured_column_source_value(config, profile_key, target_column)
+        if not value:
+            continue
+        for source in parse_column_sources(value):
+            if source not in input_columns and source not in missing:
+                missing.append(source)
+    return missing
 
 
 def filter_null_size_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -902,7 +1020,10 @@ def detect_profile_with_sources(
             input_columns,
             column_sources_for_profile(config, profile_key),
         )
-        detected_profile, detected_brand_column, detected_table_columns = detect_input_profile(normalized_columns)
+        detected_brand_column, detected_table_columns = PROFILE_DEFAULT_FIELDS.get(
+            profile_key,
+            ("BRAND", DEFAULT_COLUMNS),
+        )
         return normalized_columns, forced_profile, detected_brand_column, detected_table_columns
 
     detected_profile, detected_brand_column, detected_table_columns = detect_input_profile(input_columns)
@@ -944,6 +1065,145 @@ def css_class_for_column(column: str) -> str:
     return f"col-{cleaned or 'field'}"
 
 
+def is_enabled_config(value: str, default: bool = True) -> bool:
+    if not value:
+        return default
+    return value.strip().lower() in {"true", "yes", "1", "on"}
+
+
+def normalize_logo_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def logo_keys_from_stem(stem: str) -> list[str]:
+    keys = []
+    base = re.sub(r"[_\-\s]+\d+$", "", stem.strip())
+    for value in (stem, base):
+        key = normalize_logo_key(value)
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+
+def resolve_logo_dir(config: dict[str, str]) -> Path:
+    configured = config.get("brand_logo_dir", "img_logos").strip() or "img_logos"
+    path = Path(configured)
+    if not path.is_absolute():
+        path = script_root() / path
+    return path
+
+
+def build_brand_logo_map(config: dict[str, str], output_dir: Path) -> dict[str, str]:
+    if not is_enabled_config(config.get("brand_logo_enabled", "true"), True):
+        return {}
+    logo_dir = resolve_logo_dir(config)
+    if not logo_dir.exists():
+        return {}
+
+    logo_map: dict[str, str] = {}
+    for logo_path in sorted(logo_dir.iterdir()):
+        if not logo_path.is_file() or logo_path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
+            continue
+        rel_path = os.path.relpath(logo_path, output_dir).replace(os.sep, "/")
+        rel_url = quote(rel_path, safe="/._-()")
+        for key in logo_keys_from_stem(logo_path.stem):
+            logo_map.setdefault(key, rel_url)
+    return logo_map
+
+
+def logo_for_brand(brand: str, logo_map: dict[str, str]) -> str:
+    if not logo_map:
+        return ""
+    key = normalize_logo_key(brand)
+    if key in logo_map:
+        return logo_map[key]
+    for logo_key in sorted(logo_map, key=len, reverse=True):
+        if key.startswith(logo_key):
+            return logo_map[logo_key]
+    return ""
+
+
+def page_table_counts(pages: list[list[list[dict[str, object]]]]) -> list[int]:
+    return [sum(len(column) for column in page) for page in pages]
+
+
+def unique_page_brands(pages: list[list[list[dict[str, object]]]]) -> list[str]:
+    brands = []
+    seen = set()
+    for page in pages:
+        for column in page:
+            for table in column:
+                brand = str(table["brand"])
+                key = brand.upper()
+                if key not in seen:
+                    seen.add(key)
+                    brands.append(brand)
+    return brands
+
+
+def write_generation_log(
+    path: Path,
+    args: argparse.Namespace,
+    config: dict[str, str],
+    input_summaries: list[dict[str, object]],
+    pages: list[list[list[dict[str, object]]]],
+    logo_map: dict[str, str],
+) -> None:
+    brands = unique_page_brands(pages)
+    logo_enabled = is_enabled_config(config.get("brand_logo_enabled", "true"), True)
+    logo_dir = resolve_logo_dir(config)
+    logo_matches = [(brand, logo_for_brand(brand, logo_map)) for brand in brands]
+    matched = [(brand, logo) for brand, logo in logo_matches if logo]
+    missing = [brand for brand, logo in logo_matches if not logo]
+    counts = page_table_counts(pages)
+
+    lines = [
+        "Size chart generation log",
+        f"Generated at: {datetime.now().isoformat(timespec='seconds')}",
+        f"Config: {args.config_path}",
+        f"Output directory: {path.parent}",
+        f"CSS: {path.parent / 'size-chart.css'}",
+        f"Pages: {len(pages)}",
+        f"Table chunks: {sum(counts)}",
+        f"Unique titles: {len(brands)}",
+        f"Page table chunks: {', '.join(str(count) for count in counts)}",
+        "",
+        "Inputs:",
+    ]
+    for summary in input_summaries:
+        lines.extend(
+            [
+                f"- {summary['path']}",
+                f"  Profile: {summary['profile']}",
+                f"  Rows after filtering: {summary['rows']}",
+                f"  Titles: {summary['brands']}",
+                f"  Brand column: {summary['brand_column']}",
+                f"  Stripe column: {summary['stripe_column']}",
+                f"  Table columns: {', '.join(summary['table_columns'])}",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "Logo settings:",
+            f"Enabled: {logo_enabled}",
+            f"Directory: {logo_dir}",
+            f"Logo files indexed: {len(set(logo_map.values()))}",
+            f"Matched titles: {len(matched)}",
+            f"Missing titles: {len(missing)}",
+            "",
+            "Logo matches:",
+        ]
+    )
+    for brand, logo in logo_matches:
+        status = "MATCH" if logo else "MISSING"
+        detail = f" -> {logo}" if logo else ""
+        lines.append(f"- {status}: {brand}{detail}")
+
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def choose_stripe_column(rows: list[dict[str, str]], configured_column: str) -> str:
     input_columns = set(rows[0].keys()) if rows else set()
     if configured_column:
@@ -976,6 +1236,7 @@ def render_table(
     table_columns: list[str],
     part_number: int,
     total_parts: int,
+    logo_map: dict[str, str],
 ) -> str:
     title_text = html.escape(brand.upper())
     if total_parts > 1:
@@ -983,6 +1244,13 @@ def render_table(
     title = f'<span class="brand-title-main">{title_text}</span>'
     if description:
         title = f'{title}<span class="brand-title-description">{html.escape(description)}</span>'
+    logo_src = logo_for_brand(brand, logo_map)
+    logo_class = " has-brand-logo" if logo_src else ""
+    if logo_src:
+        title = (
+            f'{title}<img class="brand-title-logo" src="{html.escape(logo_src)}" '
+            f'alt="{html.escape(brand)} logo" loading="eager">'
+        )
 
     header_cells = "\n".join(
         f'          <th class="{css_class_for_column(column)}">{html.escape(column)}</th>'
@@ -1007,7 +1275,7 @@ def render_table(
 
     section_class = f"brand-table {html.escape(profile_class)}".strip()
     return f"""    <section class="{section_class}">
-      <h2>{title}</h2>
+      <h2 class="{logo_class.strip()}">{title}</h2>
       <table>
         <thead>
         <tr>
@@ -1132,6 +1400,7 @@ def paginate_tables(
                 0 < remaining_after_take < min_rows_per_chunk
                 and column_has_content
                 and remaining_rows <= full_column_rows
+                and offset > 0
             ):
                 move_to_next_column()
                 continue
@@ -1169,6 +1438,20 @@ def paginate_tables(
     return state
 
 
+def start_new_page(state: dict[str, object], columns: int) -> dict[str, object]:
+    safe_columns = max(1, columns)
+    pages = state["pages"]  # type: ignore[assignment]
+    heights = state["heights"]  # type: ignore[assignment]
+    page_index = int(state["page_index"])
+    current_page_has_content = any(heights[page_index])  # type: ignore[index]
+    if current_page_has_content:
+        pages.append([[] for _ in range(safe_columns)])
+        heights.append([0 for _ in range(safe_columns)])
+        state["page_index"] = page_index + 1
+    state["column_index"] = 0
+    return state
+
+
 def render_html(
     page: list[list[dict[str, object]]],
     layout_columns: int,
@@ -1181,6 +1464,7 @@ def render_html(
     header_height_px: int,
     brand_block_gap_px: int,
     page_number: int,
+    logo_map: dict[str, str],
 ) -> str:
     safe_columns = max(1, layout_columns)
     title_class = "chart-title-block is-visible" if show_title else "chart-title-block"
@@ -1197,6 +1481,7 @@ def render_html(
                     table["table_columns"],  # type: ignore[arg-type]
                     int(table["part_number"]),
                     int(table["total_parts"]),
+                    logo_map,
                 )
             )
         column_blocks.append(
@@ -1341,7 +1626,7 @@ def configured_field(
     global_default: str,
     detected_default: str,
 ) -> str:
-    prefixed = config.get(profile_config_key(profile_key, key), "").strip()
+    prefixed = next(iter(profile_config_values(config, profile_key, key)), "")
     if prefixed:
         return prefixed
     global_value = config.get(key, "").strip()
@@ -1400,13 +1685,16 @@ def main() -> None:
 
     config = apply_cli_css_overrides(read_flat_yaml(args.config_path), args)
     css_path, css_href = prepare_css_file(args.output, config)
+    logo_map = build_brand_logo_map(config, args.output.parent)
     args = apply_layout_from_config(args, config)
     cli_options = {item.split("=", 1)[0] for item in sys.argv[1:] if item.startswith("--")}
 
     state: dict[str, object] | None = None
+    input_summaries: list[dict[str, object]] = []
     for input_path, forced_profile in input_specs:
         rows = read_tsv(input_path)
-        input_columns = set(rows[0].keys()) if rows else set()
+        source_input_columns = set(rows[0].keys()) if rows else set()
+        input_columns = set(source_input_columns)
         if not args.with_null_size:
             rows = filter_null_size_rows(rows)
         if not rows:
@@ -1445,6 +1733,16 @@ def main() -> None:
         if not table_columns:
             raise ValueError(f"table_columns must contain at least one column for {input_path}.")
         stripe_column = choose_stripe_column(rows, stripe_column_config)
+        missing_sources = missing_configured_source_columns(
+            config,
+            profile_key,
+            source_input_columns,
+            [brand_column, *table_columns],
+        )
+        if missing_sources:
+            raise ValueError(
+                f"{input_path} is missing configured source column(s): {', '.join(missing_sources)}"
+            )
         missing = missing_columns(input_columns, [brand_column, *table_columns, stripe_column])
         if missing:
             raise ValueError(
@@ -1453,6 +1751,19 @@ def main() -> None:
 
         profile_args = args_for_profile(args, config, profile_key)
         grouped = group_by_brand(rows, brand_column)
+        input_summaries.append(
+            {
+                "path": input_path,
+                "profile": profile_name,
+                "rows": len(rows),
+                "brands": len(grouped),
+                "brand_column": brand_column,
+                "stripe_column": stripe_column,
+                "table_columns": table_columns,
+            }
+        )
+        if state is not None and args.profile_page_mode == "new-page":
+            state = start_new_page(state, profile_args.columns)
         state = paginate_tables(
             grouped,
             profile_args,
@@ -1483,8 +1794,11 @@ def main() -> None:
             header_height_px=max(1, args.table_header_height_px),
             brand_block_gap_px=max(0, args.table_gap_px),
             page_number=index,
+            logo_map=logo_map,
         )
         page_path.write_text(html_text, encoding="utf-8")
+    log_path = args.output.with_name(f"{stem}_generation.log")
+    write_generation_log(log_path, args, config, input_summaries, pages, logo_map)
 
 
 if __name__ == "__main__":

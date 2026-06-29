@@ -49,7 +49,10 @@ data\input\nonpickup-0626.tsv
 data\output\nonpickup-0626\output_001.html
 data\output\nonpickup-0626\output_002.html
 data\output\nonpickup-0626\size-chart.css
+data\output\nonpickup-0626\output_generation.log
 ```
+
+`output_generation.log` 会记录本次生成的输入文件、profile、页数、表格块数量、每页块数，以及每个 make/title 的 logo 匹配结果。
 
 ## 合并皮卡和非皮卡
 
@@ -64,8 +67,9 @@ python .\tsv_to_size_chart_html.py `
   --output .\data\output\0628-full\output.html
 ```
 
-`--order` 可以改成 `pickup,non-pickup`。
-合并 profile 里可以用 `non_pickup_` 或 `pickup_` 前缀覆盖任意配置，例如 `pickup_make_background`、`pickup_description_font_size`、`non_pickup_stripe_column`。没有前缀的配置作为两类共用默认值。
+`--order` 可以改成 `pickup,non-pickup`。`profile_page_mode: same-page` 会让两类连续排版，改成 `new-page` 会在皮卡/非皮卡切换时另起一页。
+
+合并 profile 里可以用 `non_pickup_` 或 `pickup_` 前缀覆盖任意配置，也可以用短前缀 `nonpick_` 或 `pick_`，例如 `pick_year_col_width`、`pickup_make_background`、`pickup_description_font_size`、`nonpick_stripe_column`。没有前缀的配置作为两类共用默认值。
 
 字段来源可以写成从左到右的 fallback 列表：
 
@@ -107,6 +111,19 @@ brand_part_align: center
 header_align: center
 ```
 
+品牌 logo：
+
+```yaml
+brand_logo_enabled: true
+brand_logo_dir: img_logos
+brand_logo_opacity: 0.8   # 80% 透明度
+brand_logo_width: 46px
+brand_logo_height: 32px
+brand_logo_right: 10px
+```
+
+脚本会按 make/title 自动匹配 `img_logos` 里的图片。文件名会忽略大小写、空格、横线、下划线和末尾数字后缀；例如 `Acura.png` 匹配 `ACURA`，`Land-Rover.png` 匹配 `LAND ROVER`，`Chevrolet.png` 也能匹配 `CHEVROLET SILVERADO 1500` 这类皮卡标题。
+
 分页和输入配置：
 
 - `title`
@@ -141,7 +158,7 @@ python .\adjust_css_to_prefer_yaml.py .\data\output\nonpick0628\size-chart.css .
 ## 导出图片
 
 ```powershell
-python .\export_html_pages_to_images.py .\data\output\nonpickup-0626\output_*.html
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Export-HtmlPagesToImages.ps1 .\data\output\nonpickup-0626\output_*.html
 ```
 
 导出脚本会读取 HTML 同目录下 `size-chart.css` 的 `--page-width` 和 `--page-height`。
