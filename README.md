@@ -143,7 +143,7 @@ brand_logo_right: 10px
 - `brand_block_gap_px`
 
 其中 `page_bottom_safe_margin_px` 会从页面可用高度里扣除；`max_rows: 0` 表示不限制每个品牌块的最大行数；`min_rows_per_brand_chunk` 控制换列拆块时至少保留几行。
-`store_column` 用来指定店铺字段；如果输入里存在这个字段且没有显式传 `--output`，脚本会按店铺值分别输出到 `data/output/输入文件名-店铺/`，合并输入时目录名会使用合并后的输入文件名加店铺。
+`store_column` 用来指定店铺字段；如果输入里存在这个字段且没有显式传 `--output`，脚本会按每个输入文件和店铺值分别输出到 `data/output/输入文件名-店铺/`。
 `line_height`、`table_row_height_px`、`make_padding_y`、`header_height_px`、`brand_block_gap_px` 会影响分页估算；make 标题栏不再固定高度，会由字体行高和上下 padding 自然撑开，多行标题也会自动变高。
 `make/header/cell/badge` 字号是基准字号；只有某个单元格内容放不下一行时，该单元格才会自动缩小到 `--fit-text-min-font-size` 以上的合适字号。
 

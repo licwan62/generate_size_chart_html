@@ -47,6 +47,13 @@ PROFILE_DEFAULT_FIELDS = {
     "non_pickup": ("MAKE", NON_PICKUP_COLUMNS),
     "pickup": ("TITLE", PICKUP_COLUMNS),
 }
+FONT_FACE_FILES = [
+    ("D-DIN-PRO", 400, "normal", "Din/DINPro-Regular.otf", "opentype"),
+    ("D-DIN-PRO", 600, "normal", "Din/DINPro-Medium.otf", "opentype"),
+    ("D-DIN-PRO", 700, "normal", "Din/DINPro-Bold.otf", "opentype"),
+    ("D-DIN-PRO", 900, "normal", "Din/DINPro-Black.otf", "opentype"),
+]
+PROJECT_ROOT = Path(__file__).resolve().parent
 
 CHART_CSS = r"""
 * {
@@ -775,11 +782,37 @@ def config_for_profile(config: dict[str, str], profile_key: str) -> dict[str, st
     return merged
 
 
+def font_face_lines(css_dir: Path) -> list[str]:
+    lines = []
+    fonts_dir = PROJECT_ROOT / "assets" / "fonts"
+    for family, weight, style, filename, font_format in FONT_FACE_FILES:
+        font_path = fonts_dir / filename
+        try:
+            rel_path = os.path.relpath(font_path, css_dir).replace(os.sep, "/")
+            font_url = quote(rel_path, safe="/._-()")
+        except ValueError:
+            font_url = font_path.resolve().as_uri()
+        lines.extend(
+            [
+                "@font-face {",
+                f"  font-family: '{family}';",
+                f"  src: url('{font_url}') format('{font_format}');",
+                f"  font-weight: {weight};",
+                f"  font-style: {style};",
+                "  font-display: swap;",
+                "}",
+                "",
+            ]
+        )
+    return lines
+
+
 def write_chart_css(path: Path, config: dict[str, str]) -> None:
-    lines = [
+    lines = font_face_lines(path.parent)
+    lines.extend([
         ":root {",
         "  /* Generated from prefer.yaml. Edit prefer.yaml, then regenerate HTML. */",
-    ]
+    ])
     for key, css_name, default, unit in CSS_CONFIG:
         value = css_value_from_config(config, key, default, unit)
         lines.append(f"  --{css_name}: {value};")
@@ -874,11 +907,20 @@ def read_tsv(path: Path) -> list[dict[str, str]]:
         reader = csv.DictReader(file, delimiter="\t")
         if not reader.fieldnames:
             raise ValueError("Input TSV has no header row.")
-        return [
-            {key: (value or "").strip() for key, value in row.items()}
-            for row in reader
-            if any((value or "").strip() for value in row.values())
-        ]
+        rows = []
+        for line_number, row in enumerate(reader, start=2):
+            if None in row:
+                extra_values = [value for value in row[None] if (value or "").strip()]
+                if extra_values:
+                    raise ValueError(
+                        f"{path} line {line_number} has more columns than the header row: "
+                        + ", ".join(extra_values[:5])
+                    )
+                row.pop(None)
+            cleaned = {key: (value or "").strip() for key, value in row.items()}
+            if any(cleaned.values()):
+                rows.append(cleaned)
+        return rows
 
 
 def parse_column_sources(value: str) -> list[str]:
@@ -1599,6 +1641,10 @@ def default_store_output_path(input_paths: list[Path], store_value: str) -> Path
     return script_root() / "data" / "output" / f"{stem}-{safe_path_part(store_value)}" / "output.html"
 
 
+def input_store_output_path(input_path: Path, store_value: str) -> Path:
+    return script_root() / "data" / "output" / f"{input_path.stem}-{safe_path_part(store_value)}" / "output.html"
+
+
 def normalize_profile_key(profile_name: str) -> str:
     cleaned = profile_name.strip().lower().replace("_", "-")
     aliases = {
@@ -1886,14 +1932,26 @@ def main() -> None:
 
     store_values = [] if output_was_explicit else store_values_for_inputs(prepared_inputs)
     if store_values:
-        for store_value in store_values:
-            generate_output(
-                args,
-                config,
-                prepared_inputs,
-                default_store_output_path([path for path, _profile in input_specs], store_value),
-                store_value,
-            )
+        for prepared in prepared_inputs:
+            input_path = prepared["path"]  # type: ignore[assignment]
+            store_column = str(prepared.get("store_column", ""))
+            if not store_column:
+                continue
+            seen_store_values = []
+            seen = set()
+            for row in prepared["rows"]:  # type: ignore[index]
+                store_value = row.get(store_column, "").strip()
+                if store_value and store_value not in seen:
+                    seen.add(store_value)
+                    seen_store_values.append(store_value)
+            for store_value in seen_store_values:
+                generate_output(
+                    args,
+                    config,
+                    [prepared],
+                    input_store_output_path(input_path, store_value),
+                    store_value,
+                )
         return
 
     if args.output is None:

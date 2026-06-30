@@ -1,3 +1,35 @@
+@font-face {
+  font-family: 'D-DIN-PRO';
+  src: url('../../../assets/fonts/Din/DINPro-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'D-DIN-PRO';
+  src: url('../../../assets/fonts/Din/DINPro-Medium.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'D-DIN-PRO';
+  src: url('../../../assets/fonts/Din/DINPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'D-DIN-PRO';
+  src: url('../../../assets/fonts/Din/DINPro-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Generated from prefer.yaml. Edit prefer.yaml, then regenerate HTML. */
   --page-line-height: 1;
