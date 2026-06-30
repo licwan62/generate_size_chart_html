@@ -33,11 +33,13 @@ DEFAULT_COLUMN_SOURCES = {
         "MODEL": ["SHORT-MODEL", "MODEL"],
         "TYPE": ["TYPE", "LONG-TYPE", "CONST"],
         "SIZE": ["SIZE", "BACKSIZE"],
+        "STORE": ["店铺"],
     },
     "pickup": {
         "TITLE": ["TITLE"],
         "MODEL": ["SHORT-MODEL", "MODEL"],
         "CAB": ["SHORT-CAB", "CAB"],
+        "STORE": ["店铺"],
     },
     "generic": {},
 }
@@ -1104,8 +1106,11 @@ def build_brand_logo_map(config: dict[str, str], output_dir: Path) -> dict[str, 
     for logo_path in sorted(logo_dir.iterdir()):
         if not logo_path.is_file() or logo_path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
             continue
-        rel_path = os.path.relpath(logo_path, output_dir).replace(os.sep, "/")
-        rel_url = quote(rel_path, safe="/._-()")
+        try:
+            rel_path = os.path.relpath(logo_path, output_dir).replace(os.sep, "/")
+            rel_url = quote(rel_path, safe="/._-()")
+        except ValueError:
+            rel_url = logo_path.resolve().as_uri()
         for key in logo_keys_from_stem(logo_path.stem):
             logo_map.setdefault(key, rel_url)
     return logo_map
@@ -1180,6 +1185,8 @@ def write_generation_log(
                 f"  Brand column: {summary['brand_column']}",
                 f"  Stripe column: {summary['stripe_column']}",
                 f"  Table columns: {', '.join(summary['table_columns'])}",
+                f"  Store column: {summary.get('store_column') or '(none)'}",
+                f"  Store value: {summary.get('store_value') or '(all)'}",
             ]
         )
 
@@ -1580,6 +1587,18 @@ def default_combined_output_path(input_paths: list[Path]) -> Path:
     return script_root() / "data" / "output" / stem / "output.html"
 
 
+def safe_path_part(value: str) -> str:
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "-", value.strip())
+    cleaned = re.sub(r"\s+", "-", cleaned)
+    cleaned = cleaned.strip(" .-")
+    return cleaned or "unknown"
+
+
+def default_store_output_path(input_paths: list[Path], store_value: str) -> Path:
+    stem = "-".join(path.stem for path in input_paths if path.stem) or "combined"
+    return script_root() / "data" / "output" / f"{stem}-{safe_path_part(store_value)}" / "output.html"
+
+
 def normalize_profile_key(profile_name: str) -> str:
     cleaned = profile_name.strip().lower().replace("_", "-")
     aliases = {
@@ -1670,27 +1689,13 @@ def args_for_profile(args: argparse.Namespace, config: dict[str, str], profile_k
     return profile_args
 
 
-def main() -> None:
-    args = apply_config(parse_args())
-    if args.output_option is not None:
-        args.output = args.output_option
-
-    input_specs = [(resolve_input_path(path), profile) for path, profile in combined_input_specs(args)]
-    if args.output is None:
-        args.output = (
-            default_combined_output_path([path for path, _profile in input_specs])
-            if len(input_specs) > 1
-            else default_output_path(input_specs[0][0])
-        )
-
-    config = apply_cli_css_overrides(read_flat_yaml(args.config_path), args)
-    css_path, css_href = prepare_css_file(args.output, config)
-    logo_map = build_brand_logo_map(config, args.output.parent)
-    args = apply_layout_from_config(args, config)
-    cli_options = {item.split("=", 1)[0] for item in sys.argv[1:] if item.startswith("--")}
-
-    state: dict[str, object] | None = None
-    input_summaries: list[dict[str, object]] = []
+def prepare_inputs(
+    args: argparse.Namespace,
+    config: dict[str, str],
+    input_specs: list[tuple[Path, str | None]],
+    cli_options: set[str],
+) -> list[dict[str, object]]:
+    prepared_inputs: list[dict[str, object]] = []
     for input_path, forced_profile in input_specs:
         rows = read_tsv(input_path)
         source_input_columns = set(rows[0].keys()) if rows else set()
@@ -1728,6 +1733,7 @@ def main() -> None:
             if "--stripe-column" in cli_options
             else configured_field(config, profile_key, "stripe_column", "", "")
         )
+        store_column = configured_field(config, profile_key, "store_column", "", "")
 
         table_columns = [column.strip() for column in table_columns_text.split(",") if column.strip()]
         if not table_columns:
@@ -1737,7 +1743,7 @@ def main() -> None:
             config,
             profile_key,
             source_input_columns,
-            [brand_column, *table_columns],
+            [brand_column, *table_columns, store_column],
         )
         if missing_sources:
             raise ValueError(
@@ -1750,6 +1756,69 @@ def main() -> None:
             )
 
         profile_args = args_for_profile(args, config, profile_key)
+        prepared_inputs.append(
+            {
+                "path": input_path,
+                "rows": rows,
+                "profile_name": profile_name,
+                "profile_key": profile_key,
+                "profile_args": profile_args,
+                "brand_column": brand_column,
+                "stripe_column": stripe_column,
+                "table_columns": table_columns,
+                "store_column": store_column if store_column in input_columns else "",
+            }
+        )
+    return prepared_inputs
+
+
+def store_values_for_inputs(prepared_inputs: list[dict[str, object]]) -> list[str]:
+    values: list[str] = []
+    seen = set()
+    for prepared in prepared_inputs:
+        store_column = str(prepared.get("store_column", ""))
+        if not store_column:
+            continue
+        for row in prepared["rows"]:  # type: ignore[index]
+            value = row.get(store_column, "").strip()
+            if value and value not in seen:
+                seen.add(value)
+                values.append(value)
+    return values
+
+
+def generate_output(
+    args: argparse.Namespace,
+    config: dict[str, str],
+    prepared_inputs: list[dict[str, object]],
+    output_path: Path,
+    store_value: str | None = None,
+) -> None:
+    run_args = copy.copy(args)
+    run_args.output = output_path
+    css_path, css_href = prepare_css_file(output_path, config)
+    logo_map = build_brand_logo_map(config, output_path.parent)
+
+    state: dict[str, object] | None = None
+    input_summaries: list[dict[str, object]] = []
+    for prepared in prepared_inputs:
+        input_path = prepared["path"]  # type: ignore[assignment]
+        rows = list(prepared["rows"])  # type: ignore[arg-type]
+        store_column = str(prepared.get("store_column", ""))
+        if store_value is not None:
+            if not store_column:
+                rows = []
+            else:
+                rows = [row for row in rows if row.get(store_column, "").strip() == store_value]
+        if not rows:
+            continue
+
+        profile_name = str(prepared["profile_name"])
+        profile_key = str(prepared["profile_key"])
+        profile_args = prepared["profile_args"]  # type: ignore[assignment]
+        brand_column = str(prepared["brand_column"])
+        stripe_column = str(prepared["stripe_column"])
+        table_columns = prepared["table_columns"]  # type: ignore[assignment]
         grouped = group_by_brand(rows, brand_column)
         input_summaries.append(
             {
@@ -1760,9 +1829,11 @@ def main() -> None:
                 "brand_column": brand_column,
                 "stripe_column": stripe_column,
                 "table_columns": table_columns,
+                "store_column": store_column,
+                "store_value": store_value,
             }
         )
-        if state is not None and args.profile_page_mode == "new-page":
+        if state is not None and run_args.profile_page_mode == "new-page":
             state = start_new_page(state, profile_args.columns)
         state = paginate_tables(
             grouped,
@@ -1776,29 +1847,62 @@ def main() -> None:
     if state is None:
         raise ValueError("No input data was processed.")
     pages = state["pages"]  # type: ignore[assignment]
-    suffix = args.output.suffix or ".html"
-    stem = args.output.stem if args.output.suffix else args.output.name
-    for stale_page in args.output.parent.glob(f"{stem}_*{suffix}"):
+    suffix = output_path.suffix or ".html"
+    stem = output_path.stem if output_path.suffix else output_path.name
+    for stale_page in output_path.parent.glob(f"{stem}_*{suffix}"):
         stale_page.unlink()
     for index, page in enumerate(pages, start=1):
-        page_path = args.output.with_name(f"{stem}_{index:03d}{suffix}")
+        page_path = output_path.with_name(f"{stem}_{index:03d}{suffix}")
         html_text = render_html(
             page=page,
-            layout_columns=args.columns,
-            title=args.title,
-            subtitle=args.subtitle,
-            show_title=args.show_title,
+            layout_columns=run_args.columns,
+            title=run_args.title,
+            subtitle=run_args.subtitle,
+            show_title=run_args.show_title,
             css_href=css_href,
-            line_height=max(0.1, args.line_height),
-            table_row_height_px=max(1, args.table_row_height_px),
-            header_height_px=max(1, args.table_header_height_px),
-            brand_block_gap_px=max(0, args.table_gap_px),
+            line_height=max(0.1, run_args.line_height),
+            table_row_height_px=max(1, run_args.table_row_height_px),
+            header_height_px=max(1, run_args.table_header_height_px),
+            brand_block_gap_px=max(0, run_args.table_gap_px),
             page_number=index,
             logo_map=logo_map,
         )
         page_path.write_text(html_text, encoding="utf-8")
-    log_path = args.output.with_name(f"{stem}_generation.log")
-    write_generation_log(log_path, args, config, input_summaries, pages, logo_map)
+    log_path = output_path.with_name(f"{stem}_generation.log")
+    write_generation_log(log_path, run_args, config, input_summaries, pages, logo_map)
+
+
+def main() -> None:
+    args = apply_config(parse_args())
+    output_was_explicit = args.output_option is not None or args.output is not None
+    if args.output_option is not None:
+        args.output = args.output_option
+
+    input_specs = [(resolve_input_path(path), profile) for path, profile in combined_input_specs(args)]
+    config = apply_cli_css_overrides(read_flat_yaml(args.config_path), args)
+    args = apply_layout_from_config(args, config)
+    cli_options = {item.split("=", 1)[0] for item in sys.argv[1:] if item.startswith("--")}
+    prepared_inputs = prepare_inputs(args, config, input_specs, cli_options)
+
+    store_values = [] if output_was_explicit else store_values_for_inputs(prepared_inputs)
+    if store_values:
+        for store_value in store_values:
+            generate_output(
+                args,
+                config,
+                prepared_inputs,
+                default_store_output_path([path for path, _profile in input_specs], store_value),
+                store_value,
+            )
+        return
+
+    if args.output is None:
+        args.output = (
+            default_combined_output_path([path for path, _profile in input_specs])
+            if len(input_specs) > 1
+            else default_output_path(input_specs[0][0])
+        )
+    generate_output(args, config, prepared_inputs, args.output)
 
 
 if __name__ == "__main__":

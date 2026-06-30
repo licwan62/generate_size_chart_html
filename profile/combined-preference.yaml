@@ -4,11 +4,13 @@ subtitle: FOR YOUR CAR COVER
 show_title: false
 
 # 合并输出的数据配置。
+non_pickup_store_column: 店铺
 non_pickup_stripe_column: MODEL
 non_pickup_make_column: MAKE
 non_pickup_model_column: SHORT-MODEL
 non_pickup_type_column: TYPE
 non_pickup_size_column: SIZE
+pickup_store_column: 店铺
 pickup_brand_column:
 pickup_stripe_column: CAB
 pickup_table_columns:

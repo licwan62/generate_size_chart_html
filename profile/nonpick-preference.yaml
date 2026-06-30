@@ -3,6 +3,7 @@ title: FIND THE RIGHT SIZE
 subtitle: FOR YOUR CAR COVER
 show_title: false
 brand_column:
+store_column: 店铺
 stripe_column: MODEL
 table_columns:
 make_column: MAKE
