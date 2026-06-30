@@ -11,7 +11,7 @@ non_pickup_model_column: SHORT-MODEL
 non_pickup_type_column: TYPE
 non_pickup_size_column: SIZE
 pickup_store_column: 店铺
-pickup_brand_column:
+pickup_brand_column: TITLE
 pickup_stripe_column: CAB
 pickup_table_columns:
 pickup_model_column: SHORT-MODEL
@@ -19,13 +19,13 @@ pickup_cab_column: SHORT-CAB
 
 # 分页规则。
 profile_page_mode: new-page #same-page new-page
-page_bottom_safe_margin_px: 10
+page_bottom_safe_margin_px: 20
 max_rows: 0
 min_rows_per_brand_chunk: 2
 line_height: 1
 table_row_height_px: 30
 make_padding_y: 5px
-header_height_px: 40
+header_height_px: 30
 brand_block_gap_px: 8
 
 # 页面尺寸和布局。
@@ -69,9 +69,9 @@ bed_align: center
 size_align: center
 
 # 列宽。
-nonpick_model_col_width: 30%
+nonpick_model_col_width: 27%
 nonpick_year_col_width: 25%
-nonpick_type_col_width: 30%
+nonpick_type_col_width: 33%
 nonpick_size_col_width: 15%
 pick_year_col_width: 25%
 pick_cab_col_width: 40%
@@ -85,7 +85,6 @@ make_font_size: 25px
 make_font_weight: 700
 brand_padding_x: 10px
 brand_title_transform: uppercase
-brand_title_align: left
 brand_logo_enabled: true
 brand_logo_dir: img_logos
 brand_logo_opacity: 0.8
@@ -99,24 +98,28 @@ description_text: #ffffff
 description_margin_top: 2px
 description_text_transform: none
 brand_part_font_size: 20px
-brand_part_align: center
 header_font_family: D-DIN-PRO, Helvetica, sans-serif
 header_font_size: 20px
 header_font_weight: 600
 header_padding_y: 1px
 header_padding_x: 5px
 header_text_transform: uppercase
-header_align: center
-model_header_align: left
-type_header_align: left
 cell_font_family: D-DIN-PRO, Helvetica, sans-serif
 cell_font_size: 18px
 cell_font_weight: 400
+cell_line_height: 1.25
 badge_font_family: D-DIN-PRO, Helvetica, sans-serif
 badge_font_size: 20px
 badge_font_weight: 700
 badge_letter_spacing: 1.5px
 fit_text_min_font_size: 7px
+
+# Header align
+brand_part_align: center
+brand_title_align: left
+header_align: center
+model_header_align: left
+type_header_align: center
 
 # 皮卡字体覆盖。
 pickup_make_font_family: D-DIN-PRO, Helvetica, sans-serif
@@ -145,4 +148,4 @@ size_s_background: #f28c28
 size_other_background: #6b7280
 
 # 皮卡 SIZE 徽标覆盖。
-pickup_size_badge_padding_x: 1px
+pickup_size_badge_padding_x: 0

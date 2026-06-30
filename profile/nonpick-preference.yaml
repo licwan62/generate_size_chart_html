@@ -98,6 +98,7 @@ type_header_align: left
 cell_font_family: D-DIN-PRO, Helvetica, sans-serif
 cell_font_size: 18px
 cell_font_weight: 400
+cell_line_height: 1.12
 badge_font_family: D-DIN-PRO, Helvetica, sans-serif
 badge_font_size: 18px
 badge_font_weight: 700

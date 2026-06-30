@@ -36,12 +36,12 @@
   --page-width: 2000px;
   --page-height: 1800px;
   --chart-columns: 5;
-  --page-padding: 15px;
+  --page-padding: 0px;
   --column-gap: 10px;
   --page-background: #ffffff;
   --page-text: #111111;
   --table-row-height: 30px;
-  --table-header-height: 40px;
+  --table-header-height: 30px;
   --brand-block-gap: 8px;
   --brand-title-background: #1a77bb;
   --brand-title-text: #ffffff;
@@ -99,13 +99,14 @@
   --header-align: center;
   --model-header-align: left;
   --year-header-align: var(--header-align);
-  --type-header-align: left;
+  --type-header-align: center;
   --cab-header-align: var(--header-align);
   --bed-header-align: var(--header-align);
   --size-header-align: var(--header-align);
   --cell-font-family: D-DIN-PRO, Helvetica, sans-serif;
   --cell-font-size: 18px;
   --cell-font-weight: 400;
+  --cell-line-height: 1.25;
   --badge-font-family: D-DIN-PRO, Helvetica, sans-serif;
   --badge-font-size: 20px;
   --badge-font-weight: 700;
@@ -129,9 +130,9 @@
 }
 
 .profile-non-pickup {
-  --model-col-width: 30%;
+  --model-col-width: 27%;
   --year-col-width: 25%;
-  --type-col-width: 30%;
+  --type-col-width: 33%;
   --size-col-width: 15%;
 }
 
@@ -149,7 +150,7 @@
   --description-font-weight: 400;
   --description-text: #ffffff;
   --description-margin-top: 5px;
-  --size-badge-padding-x: 1px;
+  --size-badge-padding-x: 0px;
 }
 
 * {
@@ -313,6 +314,10 @@ td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
+}
+
+.cell-fit {
+  line-height: var(--cell-line-height);
 }
 
 th:last-child,

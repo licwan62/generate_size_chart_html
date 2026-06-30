@@ -36,6 +36,7 @@ DEFAULT_COLUMN_SOURCES = {
         "STORE": ["店铺"],
     },
     "pickup": {
+        "MAKE": ["MAKE"],
         "TITLE": ["TITLE"],
         "MODEL": ["SHORT-MODEL", "MODEL"],
         "CAB": ["SHORT-CAB", "CAB"],
@@ -217,6 +218,10 @@ td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
+}
+
+.cell-fit {
+  line-height: var(--cell-line-height);
 }
 
 th:last-child,
@@ -492,6 +497,7 @@ CSS_CONFIG = [
     ("cell_font_family", "cell-font-family", "D-DIN-PRO, Helvetica, sans-serif", ""),
     ("cell_font_size", "cell-font-size", "18px", "px"),
     ("cell_font_weight", "cell-font-weight", "400", ""),
+    ("cell_line_height", "cell-line-height", "1.12", ""),
     ("badge_font_family", "badge-font-family", "D-DIN-PRO, Helvetica, sans-serif", ""),
     ("badge_font_size", "badge-font-size", "18px", "px"),
     ("badge_font_weight", "badge-font-weight", "900", ""),
@@ -1279,6 +1285,7 @@ def add_model_stripes(rows: list[dict[str, str]], stripe_column: str) -> None:
 
 def render_table(
     brand: str,
+    logo_brand: str,
     description: str,
     profile_class: str,
     rows: list[dict[str, str]],
@@ -1293,12 +1300,13 @@ def render_table(
     title = f'<span class="brand-title-main">{title_text}</span>'
     if description:
         title = f'{title}<span class="brand-title-description">{html.escape(description)}</span>'
-    logo_src = logo_for_brand(brand, logo_map)
+    logo_lookup = logo_brand or brand
+    logo_src = logo_for_brand(logo_lookup, logo_map)
     logo_class = " has-brand-logo" if logo_src else ""
     if logo_src:
         title = (
             f'{title}<img class="brand-title-logo" src="{html.escape(logo_src)}" '
-            f'alt="{html.escape(brand)} logo" loading="eager">'
+            f'alt="{html.escape(logo_lookup)} logo" loading="eager">'
         )
 
     header_cells = "\n".join(
@@ -1426,6 +1434,7 @@ def paginate_tables(
 
     for brand, brand_rows in grouped.items():
         description = brand_rows[0].get("DESCRIPTION", "").strip() if brand_rows else ""
+        logo_brand = brand_rows[0].get("MAKE", "").strip() if profile_key == "pickup" and brand_rows else brand
         add_model_stripes(brand_rows, stripe_column)
         brand_chunks: list[dict[str, object]] = []
         offset = 0
@@ -1466,6 +1475,7 @@ def paginate_tables(
 
             chunk = {
                 "brand": brand,
+                "logo_brand": logo_brand,
                 "description": description,
                 "rows": part_rows,
                 "table_columns": table_columns,
@@ -1524,6 +1534,7 @@ def render_html(
             tables.append(
                 render_table(
                     str(table["brand"]),
+                    str(table.get("logo_brand", table["brand"])),
                     str(table.get("description", "")),
                     str(table.get("profile_class", "")),
                     table["rows"],  # type: ignore[arg-type]
