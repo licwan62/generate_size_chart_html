@@ -3,222 +3,41 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>data/output HTML Directory</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --ink: #172033;
-      --muted: #647084;
-      --line: #d7dde8;
-      --paper: #f7f8fb;
-      --panel: #ffffff;
-      --accent: #0b6bcb;
-      --accent-dark: #084f96;
-      --folder: #8a5a00;
-      --shadow: 0 14px 34px rgba(23, 32, 51, 0.08);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Arial, Helvetica, sans-serif;
-      color: var(--ink);
-      background: var(--paper);
-    }
-
-    header {
-      padding: 42px 24px 28px;
-      background: #ffffff;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .wrap {
-      width: min(1120px, calc(100% - 32px));
-      margin: 0 auto;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(30px, 4vw, 48px);
-      line-height: 1.08;
-      letter-spacing: 0;
-    }
-
-    .lead {
-      max-width: 780px;
-      margin: 12px 0 0;
-      color: var(--muted);
-      font-size: 16px;
-      line-height: 1.55;
-    }
-
-    main {
-      padding: 28px 0 56px;
-    }
-
-    .tree {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .root-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--line);
-      background: #fbfcfe;
-    }
-
-    .root-name {
-      margin: 0;
-      color: var(--folder);
-      font-size: 18px;
-      font-weight: 700;
-    }
-
-    .count {
-      flex: 0 0 auto;
-      padding: 5px 9px;
-      border-radius: 999px;
-      color: #1e405f;
-      background: #e7f0f8;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .folders {
-      display: grid;
-      gap: 0;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .folder {
-      padding: 18px 20px 20px;
-      border-top: 1px solid var(--line);
-    }
-
-    .folder:first-child {
-      border-top: 0;
-    }
-
-    h2 {
-      margin: 0 0 14px;
-      color: var(--folder);
-      font-size: 18px;
-      letter-spacing: 0;
-    }
-
-    .page-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 10px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .page-link {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 56px;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #ffffff;
-      color: var(--accent);
-      font-weight: 700;
-    }
-
-    .page-link small {
-      display: block;
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 400;
-      overflow-wrap: anywhere;
-    }
-
-    .page-link:focus,
-    .page-link:hover {
-      border-color: var(--accent);
-      color: var(--accent-dark);
-      outline: none;
-    }
-
-    @media (max-width: 560px) {
-      header {
-        padding-top: 32px;
-      }
-
-      .root-row {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .page-list {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <title>data/output Viewer</title>
+  <link rel="stylesheet" href="data/output/viewer.css">
 </head>
 <body>
-  <header>
-    <div class="wrap">
-      <h1>data/output HTML Directory</h1>
-      <p class="lead">A static navigation root for every generated HTML page currently under data/output, preserving the folder hierarchy.</p>
-    </div>
-  </header>
-
-  <main class="wrap">
-    <nav class="tree" aria-label="data/output HTML pages">
-      <div class="root-row">
-        <p class="root-name">data/output/</p>
-        <span class="count">12 HTML pages</span>
-      </div>
-
-      <ol class="folders">
-        <li class="folder">
-          <h2>0630-hnt/</h2>
-          <ol class="page-list">
-            <li><a class="page-link" href="data/output/0630-hnt/output_001.html">output_001.html<small>data/output/0630-hnt/output_001.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-hnt/output_002.html">output_002.html<small>data/output/0630-hnt/output_002.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-hnt/output_003.html">output_003.html<small>data/output/0630-hnt/output_003.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-hnt/output_004.html">output_004.html<small>data/output/0630-hnt/output_004.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-hnt/output_005.html">output_005.html<small>data/output/0630-hnt/output_005.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-hnt/output_006.html">output_006.html<small>data/output/0630-hnt/output_006.html</small></a></li>
-          </ol>
-        </li>
-
-        <li class="folder">
-          <h2>0630-tm/</h2>
-          <ol class="page-list">
-            <li><a class="page-link" href="data/output/0630-tm/output_001.html">output_001.html<small>data/output/0630-tm/output_001.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-tm/output_002.html">output_002.html<small>data/output/0630-tm/output_002.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-tm/output_003.html">output_003.html<small>data/output/0630-tm/output_003.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-tm/output_004.html">output_004.html<small>data/output/0630-tm/output_004.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-tm/output_005.html">output_005.html<small>data/output/0630-tm/output_005.html</small></a></li>
-            <li><a class="page-link" href="data/output/0630-tm/output_006.html">output_006.html<small>data/output/0630-tm/output_006.html</small></a></li>
-          </ol>
-        </li>
-      </ol>
-    </nav>
-  </main>
+  <div id="app"></div>
+  <script>
+    window.SIZE_CHART_VIEWER = {
+      rootLabel: "data/output",
+      basePath: "data/output/",
+      directories: [
+        {
+          name: "0630-hnt",
+          files: [
+            "output_001.html",
+            "output_002.html",
+            "output_003.html",
+            "output_004.html",
+            "output_005.html",
+            "output_006.html"
+          ]
+        },
+        {
+          name: "0630-tm",
+          files: [
+            "output_001.html",
+            "output_002.html",
+            "output_003.html",
+            "output_004.html",
+            "output_005.html",
+            "output_006.html"
+          ]
+        }
+      ]
+    };
+  </script>
+  <script src="data/output/viewer.js"></script>
 </body>
 </html>
