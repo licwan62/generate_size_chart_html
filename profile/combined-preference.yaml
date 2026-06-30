@@ -30,7 +30,7 @@ brand_block_gap_px: 8
 page_width_px: 2000
 page_height_px: 1800
 chart_columns: 5
-page_padding_px: 10
+page_padding_px: 15
 column_gap: 10px
 
 # 全局颜色。
