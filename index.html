@@ -3,51 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>data/output Viewer</title>
+  <title>数据查询主页</title>
   <link rel="stylesheet" href="data/output/viewer.css">
 </head>
-<body>
-  <div id="app"></div>
-  <script>
-    window.SIZE_CHART_VIEWER = {
-      rootLabel: "data/output",
-      basePath: "data/output/",
-      directories: [
-        {
-          name: "nonpick-TM",
-          files: [
-            "output_001.html",
-            "output_002.html",
-            "output_003.html",
-            "output_004.html",
-            "output_005.html"
-          ]
-        },
-        {
-          name: "nonpick-宏能图",
-          files: [
-            "output_001.html",
-            "output_002.html",
-            "output_003.html",
-            "output_004.html",
-            "output_005.html"
-          ]
-        },
-        {
-          name: "pick-TM",
-          files: [
-            "output_001.html"
-          ]
-        },
-        {
-          name: "pick-宏能图",
-          files: [
-            "output_001.html"
-          ]
-        }
-      ]
-    };
-  </script>
-  <script src="data/output/viewer.js"></script>
+<body class="home-page">
+  <main class="home-shell">
+    <header class="home-header">
+      <p>Size Chart Tools</p>
+      <h1>数据查询</h1>
+    </header>
+    <nav class="home-actions" aria-label="Data tools">
+      <a class="home-action" href="size-chart.html">
+        <span>查尺码配对</span>
+        <strong>查看 nonpick / pick / 宏能图 / TM 的尺码结果</strong>
+      </a>
+      <a class="home-action" href="cars-data.html">
+        <span>查车型数据</span>
+        <strong>搜索车型尺寸、年份、结构和分类数据</strong>
+      </a>
+    </nav>
+  </main>
 </body>
 </html>
