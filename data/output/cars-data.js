@@ -61,6 +61,7 @@
     dimensionTheme: "auto",
     sortField: "",
     sortDirection: "asc",
+    columnWidths: {},
     status: "loading",
     message: "Loading records..."
   };
@@ -322,6 +323,7 @@
       ? `${matches.length} matching row${matches.length === 1 ? "" : "s"}.${cappedText}`
       : `${matches.length} rows indexed. Showing first ${visibleRows.length}.`;
     results.innerHTML = renderTable(visibleRows);
+    bindColumnResizers();
   }
 
   function getMatches() {
@@ -348,11 +350,19 @@
       <div class="results-table-wrap car-results-wrap">
         <table class="results-table car-data-table ${dimensionThemeClass()}">
           <colgroup>
-            ${columns.map((column) => `<col${column.width ? ` style="width: ${escapeHtml(column.width)}"` : ""}>`).join("")}
+            ${columns.map((column) => {
+              const width = state.columnWidths[column.source] || column.width;
+              return `<col data-col-source="${escapeHtml(column.source)}"${width ? ` style="width: ${escapeHtml(width)}"` : ""}>`;
+            }).join("")}
           </colgroup>
           <thead>
             <tr>
-              ${columns.map((column) => `<th class="${column.dimension ? "dimension-heading" : ""}">${escapeHtml(column.label)}</th>`).join("")}
+              ${columns.map((column) => `
+                <th class="${column.dimension ? "dimension-heading" : ""}" data-col-source="${escapeHtml(column.source)}">
+                  <span class="th-label">${escapeHtml(column.label)}</span>
+                  <span class="col-resizer" data-col-source="${escapeHtml(column.source)}" title="拖动调整列宽" aria-hidden="true"></span>
+                </th>
+              `).join("")}
             </tr>
           </thead>
           <tbody>
@@ -371,6 +381,39 @@
       return `<td>${escapeHtml(formatted)}</td>`;
     }
     return `<td class="dimension-cell"><strong>${escapeHtml(formatted || "-")}</strong></td>`;
+  }
+
+  function bindColumnResizers() {
+    const table = app.querySelector(".car-data-table");
+    if (!table) return;
+    table.querySelectorAll(".col-resizer").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => {
+        const source = handle.dataset.colSource;
+        const col = table.querySelector(`col[data-col-source="${cssEscape(source)}"]`);
+        if (!col) return;
+        event.preventDefault();
+        const startX = event.clientX;
+        const startWidth = col.getBoundingClientRect().width || 96;
+        document.body.classList.add("is-resizing-column");
+
+        const onPointerMove = (moveEvent) => {
+          const width = Math.max(56, Math.round(startWidth + moveEvent.clientX - startX));
+          state.columnWidths[source] = `${width}px`;
+          col.style.width = state.columnWidths[source];
+        };
+
+        const stopResize = () => {
+          document.body.classList.remove("is-resizing-column");
+          document.removeEventListener("pointermove", onPointerMove);
+          document.removeEventListener("pointerup", stopResize);
+          document.removeEventListener("pointercancel", stopResize);
+        };
+
+        document.addEventListener("pointermove", onPointerMove);
+        document.addEventListener("pointerup", stopResize);
+        document.addEventListener("pointercancel", stopResize);
+      });
+    });
   }
 
   function tableColumns() {

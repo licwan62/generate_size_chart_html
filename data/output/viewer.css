@@ -425,8 +425,10 @@ button {
 }
 
 .display-controls {
-  grid-template-columns: auto minmax(180px, 240px) auto auto auto;
-  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
 }
 
 .field-search label {
@@ -455,12 +457,14 @@ button {
 .field-menu,
 .settings-menu {
   position: relative;
+  align-self: flex-end;
 }
 
 .field-menu summary,
 .settings-menu summary {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 38px;
   padding: 0 12px;
   border: 1px solid var(--line);
@@ -515,6 +519,7 @@ button {
 .sort-control {
   display: grid;
   gap: 6px;
+  width: min(240px, 100%);
   min-width: 0;
 }
 
@@ -525,6 +530,7 @@ button {
 }
 
 .sort-direction {
+  align-self: flex-end;
   min-width: 38px;
   min-height: 38px;
   border: 1px solid var(--line);
@@ -537,6 +543,7 @@ button {
 
 .unit-toggle {
   display: inline-flex;
+  align-self: flex-end;
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -585,6 +592,11 @@ button {
   border-top: 1px solid var(--line);
 }
 
+body.is-resizing-column {
+  cursor: col-resize;
+  user-select: none;
+}
+
 .results-table-wrap {
   max-height: min(72vh, 820px);
   overflow: auto;
@@ -599,6 +611,10 @@ button {
 
 .car-results-wrap .results-table {
   min-width: 1160px;
+}
+
+.car-data-table {
+  table-layout: fixed;
 }
 
 .car-data-table.dimension-theme-blue .dimension-heading {
@@ -625,9 +641,44 @@ button {
   position: sticky;
   top: 0;
   z-index: 1;
+  padding-right: 18px;
   background: #eef3f8;
   color: var(--ink);
   font-size: 12px;
+}
+
+.th-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  z-index: 4;
+  width: 9px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.col-resizer::after {
+  position: absolute;
+  top: 18%;
+  right: 4px;
+  width: 1px;
+  height: 64%;
+  background: rgba(102, 112, 132, 0.28);
+  content: "";
+}
+
+.col-resizer:hover::after,
+.col-resizer:active::after {
+  width: 2px;
+  background: var(--accent);
 }
 
 .results-table td:first-child {
@@ -759,9 +810,20 @@ button {
 
   .cars-controls,
   .pickup-controls,
-  .field-search,
-  .display-controls {
+  .field-search {
     grid-template-columns: 1fr;
+  }
+
+  .display-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .field-menu summary,
+  .settings-menu summary,
+  .sort-control,
+  .sort-direction {
+    width: 100%;
   }
 
   .field-menu-panel {
