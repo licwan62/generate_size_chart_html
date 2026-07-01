@@ -62,21 +62,34 @@
     sortField: "",
     sortDirection: "asc",
     columnWidths: {},
+    fieldOrder: [],
     status: "loading",
     message: "Loading records..."
   };
   const renderLimit = 500;
+  const hiddenByDefault = new Set(["开始年", "子车系"]);
+  const dimensionSources = new Set([
+    ...defaultViewConfig.dimensions.imperial.fields.map((field) => field.source),
+    ...defaultViewConfig.dimensions.metric.fields.map((field) => field.source)
+  ]);
 
   function render() {
     app.innerHTML = `
       <header class="topbar">
         <div class="topbar-inner tool-topbar">
-          <a class="back-link" href="index.html">首页</a>
+          <nav class="section-switcher" aria-label="Pages">
+            <a href="index.html">首页</a>
+            <a href="size-chart.html">查尺码配对</a>
+            <a class="is-active" href="cars-data.html">查车型数据</a>
+          </nav>
           <div class="current-title">
-            <div class="root-label">data/source</div>
+            <div class="root-label">二级页面 / data/source</div>
             <div class="current-path">${escapeHtml(config.title)}</div>
           </div>
-          <a class="open-link" href="${escapeHtml(config.sourcePath)}">打开 TSV</a>
+          <div class="topbar-actions">
+            ${settingsMarkup()}
+            <a class="open-link" href="${escapeHtml(config.sourcePath)}">打开 TSV</a>
+          </div>
         </div>
       </header>
 
@@ -109,11 +122,21 @@
             <details class="field-menu">
               <summary>显示字段</summary>
               <div class="field-menu-panel">
+                <div class="field-menu-heading">
+                  <span>字段</span>
+                  <span>顺序</span>
+                </div>
                 ${displayFieldOptions().map((field) => `
-                  <label>
-                    <input type="checkbox" value="${escapeHtml(field.source)}" ${state.visibleFields.has(field.source) ? "checked" : ""}>
-                    <span>${escapeHtml(field.label)}</span>
-                  </label>
+                  <div class="field-option">
+                    <label>
+                      <input type="checkbox" data-field-toggle value="${escapeHtml(field.source)}" ${state.visibleFields.has(field.source) ? "checked" : ""}>
+                      <span>${escapeHtml(field.label)}</span>
+                    </label>
+                    <div class="field-order-actions">
+                      <button type="button" data-move-field="${escapeHtml(field.source)}" data-move-direction="-1" title="上移">↑</button>
+                      <button type="button" data-move-field="${escapeHtml(field.source)}" data-move-direction="1" title="下移">↓</button>
+                    </div>
+                  </div>
                 `).join("")}
               </div>
             </details>
@@ -124,23 +147,6 @@
               </select>
             </label>
             <button class="sort-direction" type="button" data-sort-direction title="切换排序方向">${state.sortDirection === "asc" ? "↑" : "↓"}</button>
-            <details class="settings-menu">
-              <summary>设置</summary>
-              <div class="settings-menu-panel">
-                <label>
-                  <input type="radio" name="dimension-theme" value="auto" ${state.dimensionTheme === "auto" ? "checked" : ""}>
-                  <span>自动颜色</span>
-                </label>
-                <label>
-                  <input type="radio" name="dimension-theme" value="blue" ${state.dimensionTheme === "blue" ? "checked" : ""}>
-                  <span>蓝色尺寸</span>
-                </label>
-                <label>
-                  <input type="radio" name="dimension-theme" value="yellow" ${state.dimensionTheme === "yellow" ? "checked" : ""}>
-                  <span>黄色尺寸</span>
-                </label>
-              </div>
-            </details>
             <div class="unit-toggle" role="group" aria-label="Dimension unit">
               <button type="button" class="${state.unit === "imperial" ? "is-active" : ""}" data-unit="imperial">${escapeHtml(state.viewConfig.dimensions.imperial.label)}</button>
               <button type="button" class="${state.unit === "metric" ? "is-active" : ""}" data-unit="metric">${escapeHtml(state.viewConfig.dimensions.metric.label)}</button>
@@ -155,6 +161,28 @@
     bind();
     updateControls();
     updateResults();
+  }
+
+  function settingsMarkup() {
+    return `
+      <details class="settings-menu">
+        <summary>颜色设置</summary>
+        <div class="settings-menu-panel">
+          <label>
+            <input type="radio" name="dimension-theme" value="auto" ${state.dimensionTheme === "auto" ? "checked" : ""}>
+            <span>自动颜色</span>
+          </label>
+          <label>
+            <input type="radio" name="dimension-theme" value="blue" ${state.dimensionTheme === "blue" ? "checked" : ""}>
+            <span>蓝色尺寸</span>
+          </label>
+          <label>
+            <input type="radio" name="dimension-theme" value="yellow" ${state.dimensionTheme === "yellow" ? "checked" : ""}>
+            <span>黄色尺寸</span>
+          </label>
+        </div>
+      </details>
+    `;
   }
 
   function filterMarkup(label, key, emptyLabel) {
@@ -208,7 +236,7 @@
       });
     });
 
-    app.querySelectorAll(".field-menu-panel input").forEach((checkbox) => {
+    app.querySelectorAll("[data-field-toggle]").forEach((checkbox) => {
       checkbox.addEventListener("change", () => {
         if (checkbox.checked) {
           state.visibleFields.add(checkbox.value);
@@ -216,6 +244,14 @@
           state.visibleFields.delete(checkbox.value);
         }
         updateResults();
+      });
+    });
+
+    app.querySelectorAll("[data-move-field]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        moveField(button.dataset.moveField, Number(button.dataset.moveDirection));
+        render();
       });
     });
 
@@ -264,10 +300,10 @@
       }
       if (viewResponse.ok) {
         state.viewConfig = mergeViewConfig(defaultViewConfig, parseViewYaml(await viewResponse.text()));
-        state.visibleFields = new Set(state.viewConfig.table_fields.filter((field) => field.visible !== false).map((field) => field.source));
       }
       const parsed = parseTsv(await dataResponse.text());
       state.headers = parsed.headers;
+      initializeFieldState();
       state.rows = parsed.rows.map((row) => ({
         values: row,
         years: expandYears(row["年份区间"] || row["开始年"]),
@@ -417,14 +453,10 @@
   }
 
   function tableColumns() {
-    const base = displayFieldOptions()
+    return displayFieldOptions()
       .filter((field) => state.visibleFields.has(field.source))
       .filter((field) => state.headers.includes(field.source))
       .filter((field) => isPickupSelected() || !isPickupField(field.source));
-    const dimensions = (state.viewConfig.dimensions[state.unit] || state.viewConfig.dimensions.imperial).fields
-      .filter((field) => state.headers.includes(field.source))
-      .map((field) => ({ ...field, numeric: true, dimension: true }));
-    return [...base, ...dimensions];
   }
 
   function fillSortOptions() {
@@ -461,7 +493,65 @@
   }
 
   function displayFieldOptions() {
-    return state.viewConfig.table_fields.filter((field) => state.headers.length === 0 || state.headers.includes(field.source));
+    const fields = allDisplayFields();
+    return sortFields(fields).filter((field) => state.headers.length === 0 || state.headers.includes(field.source));
+  }
+
+  function allDisplayFields() {
+    const configuredSources = new Set();
+    const tableFields = state.viewConfig.table_fields.map((field) => {
+      configuredSources.add(field.source);
+      return { ...field, dimension: false, numeric: false };
+    });
+    const currentDimensions = (state.viewConfig.dimensions[state.unit] || state.viewConfig.dimensions.imperial).fields
+      .map((field) => ({ ...field, numeric: true, dimension: true }));
+    const activeDimensionSources = new Set(currentDimensions.map((field) => field.source));
+    const allDimensionSources = new Set([
+      ...Object.values(state.viewConfig.dimensions).flatMap((dimension) => (dimension.fields || []).map((field) => field.source)),
+      ...dimensionSources
+    ]);
+    const extraFields = state.headers
+      .filter((header) => !configuredSources.has(header) && !allDimensionSources.has(header) && !activeDimensionSources.has(header))
+      .map((source) => ({
+        source,
+        label: source,
+        visible: !hiddenByDefault.has(source),
+        dimension: false,
+        numeric: false
+      }));
+    return [...tableFields, ...extraFields, ...currentDimensions];
+  }
+
+  function sortFields(fields) {
+    const order = new Map(state.fieldOrder.map((source, index) => [source, index]));
+    return [...fields].sort((left, right) => {
+      const leftIndex = order.has(left.source) ? order.get(left.source) : Number.MAX_SAFE_INTEGER;
+      const rightIndex = order.has(right.source) ? order.get(right.source) : Number.MAX_SAFE_INTEGER;
+      return leftIndex - rightIndex;
+    });
+  }
+
+  function initializeFieldState() {
+    const configuredSources = new Set(state.viewConfig.table_fields.map((field) => field.source));
+    const allDimensionSources = new Set(Object.values(state.viewConfig.dimensions).flatMap((dimension) => (dimension.fields || []).map((field) => field.source)));
+    const extraFields = state.headers
+      .filter((header) => !configuredSources.has(header) && !allDimensionSources.has(header))
+      .map((source) => ({ source, label: source, visible: !hiddenByDefault.has(source) }));
+    const dimensionFields = Object.values(state.viewConfig.dimensions).flatMap((dimension) => dimension.fields || []);
+    const fields = [...state.viewConfig.table_fields, ...extraFields, ...dimensionFields];
+    state.fieldOrder = fields.map((field) => field.source);
+    state.visibleFields = new Set(fields.filter((field) => field.visible !== false && !hiddenByDefault.has(field.source)).map((field) => field.source));
+  }
+
+  function moveField(source, direction) {
+    const ordered = displayFieldOptions().map((field) => field.source);
+    const index = ordered.indexOf(source);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= ordered.length) return;
+    const [item] = ordered.splice(index, 1);
+    ordered.splice(nextIndex, 0, item);
+    const orderedSet = new Set(ordered);
+    state.fieldOrder = [...ordered, ...state.fieldOrder.filter((field) => !orderedSet.has(field))];
   }
 
   function isPickupField(source) {

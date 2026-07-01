@@ -34,9 +34,14 @@
     app.innerHTML = `
       <header class="topbar">
         <div class="topbar-inner">
-          <button class="drawer-button" type="button" aria-expanded="false" aria-controls="directory-drawer" title="Directory">≡</button>
+          <nav class="section-switcher" aria-label="Pages">
+            <button class="drawer-button" type="button" aria-expanded="false" aria-controls="directory-drawer" title="目录">≡</button>
+            <a href="index.html">首页</a>
+            <a class="is-active" href="size-chart.html">查尺码配对</a>
+            <a href="cars-data.html">查车型数据</a>
+          </nav>
           <div class="current-title">
-            <div class="root-label">${config.rootLabel}</div>
+            <div class="root-label">二级页面 / ${config.rootLabel}</div>
             <div class="current-path">${activeDirectory ? `${config.rootLabel}/${activeDirectory.name}` : config.rootLabel}</div>
           </div>
           <div class="directory-tabs" role="tablist" aria-label="Folders">
