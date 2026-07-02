@@ -1,0 +1,26 @@
+filters:
+  construct:
+    label: CONSTRUCT
+    empty_label: All constructs
+    source: CONST
+    atomize: true
+  cab:
+    label: CAB
+    empty_label: All cabs
+    source: CAB
+    atomize: true
+  bed:
+    label: BED
+    empty_label: All beds
+    source: BED
+    atomize: true
+table_fields:
+  const:
+    label: CONST
+    source: CONST
+  cab:
+    label: CAB
+    source: CAB
+  bed:
+    label: BED
+    source: BED

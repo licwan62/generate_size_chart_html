@@ -58,7 +58,6 @@
     structure: "",
     pickupFilters: {},
     unit: "imperial",
-    dimensionTheme: "auto",
     sortField: "",
     sortDirection: "asc",
     columnWidths: {},
@@ -66,6 +65,8 @@
     status: "loading",
     message: "Loading records..."
   };
+  let sidebarCollapsed = false;
+  let settingsOpen = false;
   const renderLimit = 500;
   const hiddenByDefault = new Set(["开始年", "子车系"]);
   const dimensionSources = new Set([
@@ -75,29 +76,40 @@
 
   function render() {
     app.innerHTML = `
-      <header class="topbar">
-        <div class="topbar-inner tool-topbar">
-          <nav class="section-switcher" aria-label="Pages">
-            <a href="index.html">首页</a>
-            <a href="size-chart.html">查尺码配对</a>
-            <a class="is-active" href="cars-data.html">查车型数据</a>
+      <main class="viewer-main viewer-shell${sidebarCollapsed ? " is-sidebar-collapsed" : ""}">
+        <aside class="viewer-side" aria-label="Page outline">
+          <div class="sidebar-head">
+            <button class="sidebar-toggle" type="button" aria-label="${sidebarCollapsed ? "展开侧栏" : "收起侧栏"}" aria-expanded="${sidebarCollapsed ? "false" : "true"}">
+              <span>${sidebarCollapsed ? "›" : "‹"}</span>
+            </button>
+            <div class="sidebar-brand">
+              <div class="root-label">二级页面</div>
+              <div class="current-path">data/source</div>
+            </div>
+          </div>
+          <nav class="sidebar-nav" aria-label="Pages">
+            <a href="index.html" title="首页"><span class="nav-icon">H</span><span class="nav-label">首页</span></a>
+            <a href="size-chart.html" title="查尺码配对"><span class="nav-icon">S</span><span class="nav-label">查尺码配对</span></a>
+            <a href="size-charts.html" title="看尺码表"><span class="nav-icon">P</span><span class="nav-label">看尺码表</span></a>
+            <a class="is-active" href="cars-data.html" title="查车型数据"><span class="nav-icon">C</span><span class="nav-label">查车型数据</span></a>
           </nav>
-          <div class="current-title">
-            <div class="root-label">二级页面 / data/source</div>
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-context">
+            <div class="root-label">Current</div>
             <div class="current-path">${escapeHtml(config.title)}</div>
           </div>
-          <div class="topbar-actions">
-            ${settingsMarkup()}
-            <a class="open-link" href="${escapeHtml(config.sourcePath)}">打开 TSV</a>
+          <div class="sidebar-filters" aria-label="Search filters">
+            ${carsFilterControlsMarkup()}
           </div>
-        </div>
-      </header>
-
-      <main class="viewer-main">
+          <div class="sidebar-tools">
+            ${carsControlsMarkup()}
+          </div>
+        </aside>
+        <div class="viewer-content">
         <section class="search-panel" aria-label="Car data search">
           <div class="search-header">
             <div>
-              <h2>Search Records</h2>
+              <h2>Search Vehicle</h2>
               <p>${escapeHtml(config.sourcePath)}</p>
             </div>
             <button class="search-reset" type="button">Reset</button>
@@ -108,20 +120,62 @@
               <input class="global-search-input" type="search" value="${escapeHtml(state.query)}" placeholder="Search make, model, year, category, dimensions..." autocomplete="off" ${state.status === "loading" ? "disabled" : ""}>
             </label>
           </div>
-          <div class="search-controls cars-controls">
-            ${filterMarkup("分类", "type", "All types")}
-            ${filterMarkup("品牌", "brand", "All brands")}
-            ${filterMarkup("前台车型", "model", "All models")}
-            ${filterMarkup("年份", "year", "All years")}
-            ${filterMarkup("结构", "structure", "All structures")}
+          <div class="search-summary" role="status"></div>
+          <div class="search-results"></div>
+        </section>
+        ${carsSettingsModalMarkup()}
+        </div>
+      </main>
+    `;
+
+    bind();
+    updateControls();
+    updateResults();
+  }
+
+  function carsFilterControlsMarkup() {
+    return `
+      <div class="sidebar-filter-title">字段筛选</div>
+      <div class="sidebar-filter-list">
+        ${filterMarkup("分类", "type", "All types")}
+        ${filterMarkup("品牌", "brand", "All brands")}
+        ${filterMarkup("前台车型", "model", "All models")}
+        ${filterMarkup("年份", "year", "All years")}
+        ${filterMarkup("CONSTRUCT", "structure", "All constructs")}
+      </div>
+      <div class="sidebar-filter-list pickup-sidebar-filters${isPickupSelected() ? "" : " is-hidden"}">
+        ${state.viewConfig.pickup_filters.map((field) => filterMarkup(field.label, `pickup:${field.source}`, `All ${field.label}`)).join("")}
+      </div>
+    `;
+  }
+
+  function carsControlsMarkup() {
+    return `
+          <div class="display-controls sidebar-controls">
+            <button class="settings-launch" type="button" data-open-settings>表格设置</button>
+            <div class="unit-toggle" role="group" aria-label="Dimension unit">
+              <button type="button" class="${state.unit === "imperial" ? "is-active" : ""}" data-unit="imperial">${escapeHtml(state.viewConfig.dimensions.imperial.label)}</button>
+              <button type="button" class="${state.unit === "metric" ? "is-active" : ""}" data-unit="metric">${escapeHtml(state.viewConfig.dimensions.metric.label)}</button>
+            </div>
           </div>
-          <div class="search-controls pickup-controls${isPickupSelected() ? "" : " is-hidden"}">
-            ${state.viewConfig.pickup_filters.map((field) => filterMarkup(field.label, `pickup:${field.source}`, `All ${field.label}`)).join("")}
+    `;
+  }
+
+  function carsSettingsModalMarkup() {
+    return `
+      <div class="settings-overlay${settingsOpen ? " is-open" : ""}" data-settings-overlay>
+        <section class="settings-dialog" role="dialog" aria-modal="true" aria-label="表格设置">
+          <div class="settings-dialog-header">
+            <div>
+              <h3>表格设置</h3>
+              <p>显示字段和排序</p>
+            </div>
+            <button type="button" class="settings-close" data-close-settings aria-label="关闭">×</button>
           </div>
-          <div class="display-controls">
-            <details class="field-menu">
-              <summary>显示字段</summary>
-              <div class="field-menu-panel">
+          <div class="settings-dialog-body">
+            <section class="settings-block">
+              <h4>显示字段</h4>
+              <div class="field-menu-panel settings-field-list">
                 <div class="field-menu-heading">
                   <span>字段</span>
                   <span>顺序</span>
@@ -139,49 +193,22 @@
                   </div>
                 `).join("")}
               </div>
-            </details>
-            <label class="sort-control">
-              <span>排序</span>
-              <select class="search-select" data-sort-field ${state.status === "loading" ? "disabled" : ""}>
-                <option value="">默认顺序</option>
-              </select>
-            </label>
-            <button class="sort-direction" type="button" data-sort-direction title="切换排序方向">${state.sortDirection === "asc" ? "↑" : "↓"}</button>
-            <div class="unit-toggle" role="group" aria-label="Dimension unit">
-              <button type="button" class="${state.unit === "imperial" ? "is-active" : ""}" data-unit="imperial">${escapeHtml(state.viewConfig.dimensions.imperial.label)}</button>
-              <button type="button" class="${state.unit === "metric" ? "is-active" : ""}" data-unit="metric">${escapeHtml(state.viewConfig.dimensions.metric.label)}</button>
-            </div>
+            </section>
+            <section class="settings-block">
+              <h4>排序</h4>
+              <div class="settings-sort-row">
+                <label class="sort-control">
+                  <span>排序字段</span>
+                  <select class="search-select" data-sort-field ${state.status === "loading" ? "disabled" : ""}>
+                    <option value="">默认顺序</option>
+                  </select>
+                </label>
+                <button class="sort-direction" type="button" data-sort-direction title="切换排序方向">${state.sortDirection === "asc" ? "↑" : "↓"}</button>
+              </div>
+            </section>
           </div>
-          <div class="search-summary" role="status"></div>
-          <div class="search-results"></div>
         </section>
-      </main>
-    `;
-
-    bind();
-    updateControls();
-    updateResults();
-  }
-
-  function settingsMarkup() {
-    return `
-      <details class="settings-menu">
-        <summary>颜色设置</summary>
-        <div class="settings-menu-panel">
-          <label>
-            <input type="radio" name="dimension-theme" value="auto" ${state.dimensionTheme === "auto" ? "checked" : ""}>
-            <span>自动颜色</span>
-          </label>
-          <label>
-            <input type="radio" name="dimension-theme" value="blue" ${state.dimensionTheme === "blue" ? "checked" : ""}>
-            <span>蓝色尺寸</span>
-          </label>
-          <label>
-            <input type="radio" name="dimension-theme" value="yellow" ${state.dimensionTheme === "yellow" ? "checked" : ""}>
-            <span>黄色尺寸</span>
-          </label>
-        </div>
-      </details>
+      </div>
     `;
   }
 
@@ -197,6 +224,34 @@
   }
 
   function bind() {
+    app.querySelector(".sidebar-toggle").addEventListener("click", () => {
+      sidebarCollapsed = !sidebarCollapsed;
+      render();
+    });
+
+    app.querySelectorAll("[data-open-settings]").forEach((button) => {
+      button.addEventListener("click", () => {
+        settingsOpen = true;
+        render();
+      });
+    });
+
+    app.querySelectorAll("[data-close-settings]").forEach((button) => {
+      button.addEventListener("click", () => {
+        settingsOpen = false;
+        render();
+      });
+    });
+
+    app.querySelectorAll("[data-settings-overlay]").forEach((overlay) => {
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+          settingsOpen = false;
+          render();
+        }
+      });
+    });
+
     app.querySelector(".global-search-input").addEventListener("input", (event) => {
       state.query = event.target.value;
       updateControls();
@@ -255,23 +310,22 @@
       });
     });
 
-    app.querySelector("[data-sort-field]").addEventListener("change", (event) => {
-      state.sortField = event.target.value;
-      updateResults();
-    });
-
-    app.querySelector("[data-sort-direction]").addEventListener("click", () => {
-      state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
-      app.querySelector("[data-sort-direction]").textContent = state.sortDirection === "asc" ? "↑" : "↓";
-      updateResults();
-    });
-
-    app.querySelectorAll("[name='dimension-theme']").forEach((radio) => {
-      radio.addEventListener("change", () => {
-        state.dimensionTheme = radio.value;
+    const sortField = app.querySelector("[data-sort-field]");
+    if (sortField) {
+      sortField.addEventListener("change", (event) => {
+        state.sortField = event.target.value;
         updateResults();
       });
-    });
+    }
+
+    const sortDirection = app.querySelector("[data-sort-direction]");
+    if (sortDirection) {
+      sortDirection.addEventListener("click", () => {
+        state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+        sortDirection.textContent = state.sortDirection === "asc" ? "↑" : "↓";
+        updateResults();
+      });
+    }
 
     app.querySelector(".search-reset").addEventListener("click", () => {
       state.query = "";
@@ -310,7 +364,7 @@
         searchText: Object.values(row).join(" ")
       }));
       state.status = "ready";
-      state.message = `${state.rows.length} rows indexed.`;
+      state.message = `全量车型数据：已索引 ${formatCount(state.rows.length)} 条记录。`;
     } catch (error) {
       state.status = "error";
       state.message = "Unable to load car data.";
@@ -329,11 +383,11 @@
     fillFilter("model", "All models", unique(brandRows.map((row) => row.values["前台车型"])), state.model);
     const modelRows = brandRows.filter((row) => !state.model || row.values["前台车型"] === state.model);
     fillFilter("year", "All years", uniqueYears(modelRows), state.year);
-    fillFilter("structure", "All structures", unique(modelRows.map((row) => row.values["结构"])), state.structure);
+    fillFilter("structure", "All constructs", unique(modelRows.flatMap(structureAtoms)), state.structure);
 
     if (isPickupSelected()) {
       state.viewConfig.pickup_filters.forEach((field) => {
-        fillFilter(`pickup:${field.source}`, `All ${field.label}`, unique(modelRows.map((row) => row.values[field.source])), state.pickupFilters[field.source] || "");
+        fillFilter(`pickup:${field.source}`, `All ${field.label}`, unique(modelRows.flatMap((row) => fieldAtoms(row.values[field.source]))), state.pickupFilters[field.source] || "");
       });
     }
     fillSortOptions();
@@ -354,10 +408,10 @@
     const hasFilter = state.query.trim() || state.brand || state.model || state.year || state.type || state.structure || Object.values(state.pickupFilters).some(Boolean);
     const sortedRows = sortRows(matches);
     const visibleRows = sortedRows.slice(0, renderLimit);
-    const cappedText = sortedRows.length > visibleRows.length ? ` Showing first ${visibleRows.length}.` : "";
+    const cappedText = sortedRows.length > visibleRows.length ? `，当前显示前 ${formatCount(visibleRows.length)} 条。` : "。";
     summary.textContent = hasFilter
-      ? `${matches.length} matching row${matches.length === 1 ? "" : "s"}.${cappedText}`
-      : `${matches.length} rows indexed. Showing first ${visibleRows.length}.`;
+      ? `匹配结果：${formatCount(matches.length)} 条记录${cappedText}`
+      : `全量车型数据：已索引 ${formatCount(matches.length)} 条记录，当前显示前 ${formatCount(visibleRows.length)} 条。`;
     results.innerHTML = renderTable(visibleRows);
     bindColumnResizers();
   }
@@ -369,9 +423,9 @@
       if (state.brand && row.values["品牌"] !== state.brand) return false;
       if (state.model && row.values["前台车型"] !== state.model) return false;
       if (state.year && !row.years.includes(Number(state.year))) return false;
-      if (state.structure && row.values["结构"] !== state.structure) return false;
+      if (state.structure && !structureAtoms(row).includes(state.structure)) return false;
       for (const [field, value] of Object.entries(state.pickupFilters)) {
-        if (value && row.values[field] !== value) return false;
+        if (value && !fieldAtoms(row.values[field]).includes(value)) return false;
       }
       return !tokens.length || tokens.every((token) => normalizeSearchText(row.searchText).includes(token));
     });
@@ -485,10 +539,12 @@
     return String(left || "").localeCompare(String(right || ""), undefined, { numeric: true });
   }
 
+  function formatCount(value) {
+    return new Intl.NumberFormat("en-US").format(value);
+  }
+
   function dimensionThemeClass() {
-    const theme = state.dimensionTheme === "auto"
-      ? (state.unit === "metric" ? "yellow" : "blue")
-      : state.dimensionTheme;
+    const theme = state.unit === "metric" ? "yellow" : "blue";
     return `dimension-theme-${theme}`;
   }
 
@@ -703,6 +759,17 @@
       }
     }
     return Array.from(new Set((text.match(/\b(?:19|20)\d{2}\b/g) || []).map(Number)));
+  }
+
+  function structureAtoms(row) {
+    const value = cleanField(row.values["结构"]);
+    return fieldAtoms(value);
+  }
+
+  function fieldAtoms(value) {
+    const text = cleanField(value);
+    if (!text) return [];
+    return Array.from(new Set(text.split(/\s*(?:\/|,|;|\||\+|&)\s*/).map(cleanField).filter(Boolean)));
   }
 
   function searchTokens(value) {
