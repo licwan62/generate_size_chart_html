@@ -18,6 +18,9 @@
       const: { label: "CONST", source: "CONST" },
       cab: { label: "CAB", source: "CAB" },
       bed: { label: "BED", source: "BED" }
+    },
+    size_reference: {
+      match_field: "通用尺码"
     }
   };
   let activeChartSelection = "all";
@@ -28,6 +31,7 @@
   const directoryIndexes = new Map();
   const directoryMetadata = new Map();
   const tsvIndexes = new Map();
+  const sizeReferenceIndex = new Map();
   const searchState = {
     scopeKey: "",
     records: [],
@@ -40,6 +44,8 @@
     selectedConstruct: "",
     selectedCab: "",
     selectedBed: "",
+    columnFilters: {},
+    openFilter: "",
     columnWidths: {},
     visibleColumns: null,
     fieldOrder: [],
@@ -155,21 +161,18 @@
             </div>
           </div>
           <nav class="sidebar-nav" aria-label="Pages">
-            <a href="index.html" title="首页"><span class="nav-icon">H</span><span class="nav-label">首页</span></a>
-            <a class="${isSearchPage ? "is-active" : ""}" href="size-chart.html" title="查尺码配对"><span class="nav-icon">S</span><span class="nav-label">查尺码配对</span></a>
-            <a class="${!isSearchPage ? "is-active" : ""}" href="size-charts.html" title="看尺码表"><span class="nav-icon">P</span><span class="nav-label">看尺码表</span></a>
-            <a href="cars-data.html" title="查车型数据"><span class="nav-icon">C</span><span class="nav-label">查车型数据</span></a>
+            <a href="index.html" title="首页"><span class="nav-icon">首</span><span class="nav-label">首页</span></a>
+            <a class="${!isSearchPage ? "is-active" : ""}" href="size-charts.html" title="Size Chart"><span class="nav-icon">S</span><span class="nav-label">Size Chart</span></a>
+            <a href="size-ref.html" title="尺码参考"><span class="nav-icon">参</span><span class="nav-label">尺码参考</span></a>
+            <a href="cars-data.html" title="车型三维"><span class="nav-icon">车</span><span class="nav-label">车型三维</span></a>
+            <a class="${isSearchPage ? "is-active" : ""}" href="size-chart.html" title="尺码配对"><span class="nav-icon">尺</span><span class="nav-label">尺码配对</span></a>
           </nav>
           <div class="sidebar-divider"></div>
           <div class="sidebar-context">
             <div class="root-label">Current</div>
-            <div class="current-path">${isSearchPage ? "查尺码配对" : "看尺码表"}</div>
+            <div class="current-path">${isSearchPage ? "尺码配对" : "Size Chart"}</div>
+            <p class="sidebar-description">${isSearchPage ? "按车型字段检索不同店铺的配对尺码，并可跳转到车型数据。" : "按店铺和目录浏览已生成的尺码表页面。"}</p>
           </div>
-          ${isSearchPage ? `
-            <div class="sidebar-filters" aria-label="Search filters">
-              ${sizeFilterControlsMarkup()}
-            </div>
-          ` : ""}
           ${!isSearchPage ? `
             <nav class="sidebar-outline" aria-label="Size chart outline">
               <div class="chart-outline" aria-label="Size chart folders">
@@ -186,28 +189,22 @@
         <div class="viewer-content">
         ${isSearchPage ? `
         <section class="search-panel" aria-label="Size chart search">
-          <div class="search-header">
-            <div>
-              <h2>Search Size</h2>
-              <p>All folders</p>
-            </div>
-            <button class="search-reset" type="button">Reset</button>
-          </div>
           <div class="global-search">
             <label>
               <span>GLOBAL</span>
               <input class="global-search-input" type="search" value="${escapeHtml(searchState.query)}" placeholder="Search nonpick, pick, 宏能图, TM, make, model, type, size, year..." autocomplete="off">
             </label>
+            <button class="search-reset" type="button">Reset</button>
           </div>
           <div class="search-summary" role="status"></div>
           <div class="search-results"></div>
         </section>
         ${sizeSettingsModalMarkup()}
         ` : `
-        <section class="page-stack size-charts-panel" aria-label="看尺码表">
+        <section class="page-stack size-charts-panel" aria-label="Size Chart">
           <div class="size-charts-header">
             <div>
-              <h2>看尺码表</h2>
+              <h2>Size Chart</h2>
               <p>${selectedChartLabel} · ${selectedChartFileCount} HTML</p>
             </div>
           </div>
@@ -450,6 +447,18 @@
       });
     });
 
+    app.querySelectorAll("[data-size-table-filter]").forEach((select) => {
+      select.addEventListener("change", () => {
+        const key = select.dataset.sizeTableFilter;
+        if (select.value) {
+          searchState.columnFilters[key] = select.value;
+        } else {
+          delete searchState.columnFilters[key];
+        }
+        updateSearchResults();
+      });
+    });
+
     app.querySelectorAll("[data-size-field-toggle]").forEach((checkbox) => {
       checkbox.addEventListener("change", () => {
         ensureSizeFieldState();
@@ -519,6 +528,8 @@
     searchState.selectedConstruct = "";
     searchState.selectedCab = "";
     searchState.selectedBed = "";
+    searchState.columnFilters = {};
+    searchState.openFilter = "";
     searchState.sortField = "";
     searchState.sortDirection = "asc";
   }
@@ -942,6 +953,10 @@
     summary.textContent = `匹配结果：${formatCount(matches.length)} 条记录。`;
     results.innerHTML = renderResultsTable(matches);
     bindResultColumnResizers();
+    bindSizeLinkedRows();
+    bindSizeHeaderFilterPopovers();
+    bindSizeTableFilters();
+    bindSizeReferenceHovers();
   }
 
   function getSearchMatches() {
@@ -966,6 +981,9 @@
       }
       if (searchState.selectedBed && !filterAtoms(record, "bed").includes(searchState.selectedBed)) {
         return false;
+      }
+      for (const [key, value] of Object.entries(searchState.columnFilters)) {
+        if (value && sizeColumnFilterValue(record, key) !== value) return false;
       }
       return true;
     });
@@ -1008,8 +1026,9 @@
           <thead>
             <tr>
               ${tableColumns.map((column) => `
-                <th class="${resultHeaderClass(column)}" data-col-key="${escapeHtml(column.key)}">
-                  <span class="th-label">${escapeHtml(column.label)}</span>
+                <th class="${resultHeaderClass(column)}${searchState.openFilter === column.key ? " is-filter-open" : ""}" data-col-key="${escapeHtml(column.key)}">
+                  ${sizeHeaderLabelMarkup(column)}
+                  ${sizeHeaderFilterMarkup(column, tableColumns)}
                   <span class="col-resizer" data-col-key="${escapeHtml(column.key)}" title="拖动调整列宽" aria-hidden="true"></span>
                 </th>
               `).join("")}
@@ -1017,7 +1036,7 @@
           </thead>
           <tbody>
             ${records.map((record) => `
-              <tr>
+              <tr class="linked-result-row" data-row-link="${escapeHtml(sizeToCarsLink(record))}" title="点击后到车型三维搜索这行车型">
                 ${tableColumns.map((column) => resultCellMarkup(record, column)).join("")}
               </tr>
             `).join("")}
@@ -1046,13 +1065,219 @@
 
   function resultCellMarkup(record, column) {
     if (column.source) {
-      return `<td class="source-cell"><a href="${pagePathByName(record.directory, record.file)}">${escapeHtml(record.source)}</a></td>`;
+      return `<td class="source-cell"><a href="${pagePathByName(record.directory, record.file)}">${escapeHtml(topSource(record.directory) || record.source)}</a></td>`;
     }
     const value = column.key === "MAKE" ? record.make : resultColumnValue(record, column.key);
     if (column.size) {
-      return `<td class="size-cell"><strong>${escapeHtml(value || "-")}</strong></td>`;
+      const ref = sizeReferenceFor(value);
+      const refAttr = ref ? ` data-size-ref="${escapeHtml(cleanField(value).toUpperCase())}"` : "";
+      const refClass = ref ? " size-cell-has-ref" : "";
+      return `<td class="size-cell${refClass}"${refAttr} style="--size-bg: ${sizeBackground(value)}; --size-fg: #ffffff"><strong>${escapeHtml(value || "-")}</strong></td>`;
     }
     return `<td>${escapeHtml(value || "")}</td>`;
+  }
+
+  function sizeHeaderLabelMarkup(column) {
+    return `
+      <button class="th-label th-filter-trigger${searchState.columnFilters[column.key] ? " is-filtered" : ""}" type="button" data-size-open-filter="${escapeHtml(column.key)}" title="筛选 ${escapeHtml(column.label)}">
+        ${escapeHtml(column.label)}
+      </button>
+    `;
+  }
+
+  function sizeHeaderFilterMarkup(column, tableColumns) {
+    if (searchState.openFilter !== column.key) return "";
+    return `
+      <div class="header-filter-popover">
+        <select class="header-filter-select" data-size-table-filter="${escapeHtml(column.key)}" title="筛选 ${escapeHtml(column.label)}">
+          ${sizeFilterOptions(column, tableColumns).map((option) => (
+            `<option value="${escapeHtml(option.value)}"${option.value === (searchState.columnFilters[column.key] || "") ? " selected" : ""}>${escapeHtml(option.label)}</option>`
+          )).join("")}
+        </select>
+      </div>
+    `;
+  }
+
+  function sizeFilterOptions(column, tableColumns) {
+    const currentValue = searchState.columnFilters[column.key] || "";
+    const records = getSearchMatchesIgnoringColumn(column.key);
+    const values = uniqueInOrder(records.map((record) => sizeColumnFilterValue(record, column.key)).filter(Boolean));
+    const allLabel = column.source ? "All sources" : `All ${column.label}`;
+    const options = [{ value: "", label: allLabel }, ...values.map((value) => ({ value, label: value }))];
+    if (currentValue && !values.includes(currentValue)) {
+      options.push({ value: currentValue, label: currentValue });
+    }
+    return options;
+  }
+
+  function getSearchMatchesIgnoringColumn(ignoredKey) {
+    const saved = searchState.columnFilters[ignoredKey];
+    delete searchState.columnFilters[ignoredKey];
+    const records = getSearchMatches();
+    if (saved) {
+      searchState.columnFilters[ignoredKey] = saved;
+    }
+    return records;
+  }
+
+  function bindSizeTableFilters() {
+    app.querySelectorAll("[data-size-table-filter]").forEach((select) => {
+      if (select.dataset.bound === "true") return;
+      select.dataset.bound = "true";
+      select.addEventListener("change", () => {
+        const key = select.dataset.sizeTableFilter;
+        if (select.value) {
+          searchState.columnFilters[key] = select.value;
+        } else {
+          delete searchState.columnFilters[key];
+        }
+        updateSearchResults();
+      });
+    });
+  }
+
+  function bindSizeHeaderFilterPopovers() {
+    app.querySelectorAll("[data-size-open-filter]").forEach((button) => {
+      if (button.dataset.bound === "true") return;
+      button.dataset.bound = "true";
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        searchState.openFilter = searchState.openFilter === button.dataset.sizeOpenFilter ? "" : button.dataset.sizeOpenFilter;
+        updateSearchResults();
+      });
+    });
+    app.querySelectorAll(".size-results-table th.is-filter-open").forEach((cell) => {
+      if (cell.dataset.hoverBound === "true") return;
+      cell.dataset.hoverBound = "true";
+      cell.addEventListener("mouseleave", () => {
+        if (cell.contains(document.activeElement)) return;
+        searchState.openFilter = "";
+        updateSearchResults();
+      });
+      cell.addEventListener("focusout", () => {
+        window.setTimeout(() => {
+          if (cell.matches(":hover") || cell.contains(document.activeElement)) return;
+          searchState.openFilter = "";
+          updateSearchResults();
+        }, 0);
+      });
+    });
+  }
+
+  function bindSizeLinkedRows() {
+    app.querySelectorAll(".size-results-table .linked-result-row").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("a, button, input, select, .col-resizer, .size-cell-has-ref")) return;
+        const href = row.dataset.rowLink;
+        if (href) {
+          window.location.href = href;
+        }
+      });
+    });
+  }
+
+  function sizeColumnFilterValue(record, key) {
+    if (sameColumn(key, "SOURCE")) return topSource(record.directory);
+    if (sameColumn(key, "MAKE")) return record.make;
+    if (sameColumn(key, "MODEL")) return record.model || resultColumnValue(record, key);
+    if (sameColumn(key, "YEAR")) return cleanField(resultColumnValue(record, key) || record.year);
+    if (sameColumn(key, "CONST")) return configuredRecordValue(record, "const") || record.construct;
+    if (sameColumn(key, "CAB")) return configuredRecordValue(record, "cab");
+    if (sameColumn(key, "BED")) return configuredRecordValue(record, "bed");
+    if (sameColumn(key, "TYPE")) return record.type || resultColumnValue(record, key);
+    return resultColumnValue(record, key);
+  }
+
+  function sizeToCarsLink(record) {
+    return `cars-data.html?q=${encodeURIComponent(sizeToCarsQuery(record))}`;
+  }
+
+  function sizeToCarsQuery(record) {
+    return uniqueInOrder([
+      record.make,
+      record.model || resultColumnValue(record, "MODEL"),
+      resultColumnValue(record, "YEAR") || record.year,
+      configuredRecordValue(record, "const") || record.construct,
+      record.type || resultColumnValue(record, "TYPE"),
+      configuredRecordValue(record, "cab"),
+      configuredRecordValue(record, "bed")
+    ].map(cleanField)).join(" ");
+  }
+
+  function sizeReferenceFor(value) {
+    return sizeReferenceIndex.get(cleanField(value).toUpperCase());
+  }
+
+  function bindSizeReferenceHovers() {
+    const cells = app.querySelectorAll("[data-size-ref]");
+    if (!cells.length) return;
+    const floating = ensureSizeReferenceFloating();
+    cells.forEach((cell) => {
+      const show = () => {
+        const ref = sizeReferenceIndex.get(cell.dataset.sizeRef);
+        if (!ref) return;
+        floating.innerHTML = sizeReferenceMarkup(cell.textContent, ref);
+        floating.classList.add("is-open");
+        positionSizeReferenceFloating(floating, cell.getBoundingClientRect());
+      };
+      cell.addEventListener("mouseenter", show);
+      cell.addEventListener("focus", show);
+      cell.addEventListener("mousemove", () => positionSizeReferenceFloating(floating, cell.getBoundingClientRect()));
+      cell.addEventListener("mouseleave", () => floating.classList.remove("is-open"));
+      cell.addEventListener("blur", () => floating.classList.remove("is-open"));
+    });
+  }
+
+  function ensureSizeReferenceFloating() {
+    let floating = document.querySelector(".size-reference-floating");
+    if (!floating) {
+      floating = document.createElement("div");
+      floating.className = "size-reference-floating";
+      document.body.appendChild(floating);
+    }
+    return floating;
+  }
+
+  function positionSizeReferenceFloating(floating, rect) {
+    const gap = 10;
+    const width = floating.offsetWidth || 210;
+    const left = Math.min(window.innerWidth - width - gap, Math.max(gap, rect.left + rect.width / 2 - width / 2));
+    const top = Math.max(gap, rect.top - floating.offsetHeight - gap);
+    floating.style.left = `${left}px`;
+    floating.style.top = `${top}px`;
+  }
+
+  function sizeReferenceMarkup(size, ref) {
+    return `
+      <div class="size-reference-title">${escapeHtml(cleanField(size))}</div>
+      <div class="size-reference-common">${escapeHtml(ref["通用尺码"] || "")}</div>
+      <div class="size-reference-dims">
+        ${sizeReferenceDimension("长", ref["长_in"])}
+        ${sizeReferenceDimension("宽", ref["宽_in"])}
+        ${sizeReferenceDimension("高", ref["高_in"])}
+      </div>
+    `;
+  }
+
+  function sizeReferenceDimension(label, value) {
+    return `<span><em>${escapeHtml(label)}</em><strong>${escapeHtml(value ? `${value} in` : "-")}</strong></span>`;
+  }
+
+  function sizeBackground(value) {
+    const text = cleanField(value).toUpperCase();
+    const base = ({ A: "#1777c8", C: "#d62828", H: "#00a6a6", S: "#f28c28" })[text[0]] || "#6b7280";
+    const number = Number((text.match(/\d+/) || ["0"])[0]);
+    return darkenHex(base, Math.min(0.34, Math.max(0, (number - 1) * 0.055)));
+  }
+
+  function darkenHex(hex, amount) {
+    const normalized = hex.replace("#", "");
+    const value = Number.parseInt(normalized, 16);
+    if (!Number.isFinite(value)) return hex;
+    const r = Math.round(((value >> 16) & 255) * (1 - amount));
+    const g = Math.round(((value >> 8) & 255) * (1 - amount));
+    const b = Math.round((value & 255) * (1 - amount));
+    return `rgb(${r}, ${g}, ${b})`;
   }
 
   function resultColumnValue(record, column) {
@@ -1196,7 +1421,7 @@
   }
 
   function parseSizeViewYaml(text) {
-    const result = { filters: {}, table_fields: {} };
+    const result = { filters: {}, table_fields: {}, size_reference: {} };
     let section = "";
     let keyName = "";
     text.split(/\r?\n/).forEach((line) => {
@@ -1211,6 +1436,11 @@
       if (indent === 2 && trimmed.endsWith(":") && (section === "filters" || section === "table_fields")) {
         keyName = trimmed.slice(0, -1);
         result[section][keyName] = result[section][keyName] || {};
+        return;
+      }
+      if (indent === 2 && section === "size_reference" && trimmed.includes(":")) {
+        const [rawKey, ...rawValue] = trimmed.split(":");
+        result.size_reference[rawKey.trim()] = parseYamlValue(rawValue.join(":").trim());
         return;
       }
       if (indent >= 4 && keyName && trimmed.includes(":")) {
@@ -1232,7 +1462,8 @@
   function mergeViewConfig(fallback, parsed) {
     const merged = {
       filters: { ...fallback.filters },
-      table_fields: { ...fallback.table_fields }
+      table_fields: { ...fallback.table_fields },
+      size_reference: { ...fallback.size_reference, ...(parsed.size_reference || {}) }
     };
     Object.entries(parsed.filters || {}).forEach(([key, value]) => {
       merged.filters[key] = { ...(merged.filters[key] || {}), ...value };
@@ -1241,6 +1472,25 @@
       merged.table_fields[key] = { ...(merged.table_fields[key] || {}), ...value };
     });
     return merged;
+  }
+
+  async function loadSizeReferences() {
+    if (!config.sizeRefPath) return;
+    try {
+      const response = await fetch(config.sizeRefPath, { cache: "no-store" });
+      if (!response.ok) return;
+      const rows = parseTsv(await response.text());
+      const matchField = viewConfig.size_reference?.match_field || "通用尺码";
+      sizeReferenceIndex.clear();
+      rows.forEach((row) => {
+        const key = cleanField(row[matchField]).toUpperCase();
+        if (key) {
+          sizeReferenceIndex.set(key, row);
+        }
+      });
+    } catch (error) {
+      sizeReferenceIndex.clear();
+    }
   }
 
   function resultHeaderClass(column) {
@@ -1464,5 +1714,5 @@
   }
 
   window.addEventListener("resize", resizeFrames);
-  loadViewConfig().then(render);
+  loadViewConfig().then(loadSizeReferences).then(render);
 })();

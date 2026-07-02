@@ -24,3 +24,5 @@ table_fields:
   bed:
     label: BED
     source: BED
+size_reference:
+  match_field: 通用尺码

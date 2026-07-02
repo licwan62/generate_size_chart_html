@@ -1,64 +1,64 @@
 table_fields:
   - source: 品牌
-    label: 品牌
-    width: 92px
+    label: MAKE
+    width: 126px
   - source: 前台车型
-    label: 前台车型
-    width: 120px
+    label: MODEL
+    width: 150px
   - source: 主车型
-    label: 主车型
+    label: MAIN MODEL
     visible: false
     width: 180px
   - source: 代际
-    label: 代际
-    width: 72px
+    label: GEN
+    width: 90px
   - source: 年份区间
-    label: 年份区间
-    width: 118px
+    label: YEAR
+    width: 132px
   - source: 结构
-    label: 结构
-    width: 110px
+    label: CONST
+    width: 132px
   - source: 版本
-    label: 版本
-    width: 120px
+    label: VERSION
+    width: 150px
   - source: 分类
-    label: 分类
-    width: 82px
+    label: CATEGORY
+    width: 110px
   - source: 驾驶室类型
-    label: 驾驶室类型
-    width: 110px
+    label: CAB
+    width: 120px
   - source: 货斗长度_ft
-    label: 货斗长度_ft
-    width: 110px
+    label: BED
+    width: 118px
 dimensions:
   imperial:
     label: 英寸
     fields:
       - source: length_in
-        label: 长(in)
-        width: 92px
+        label: LENGTH (IN)
+        width: 118px
       - source: width_in
-        label: 宽(in)
-        width: 92px
+        label: WIDTH (IN)
+        width: 112px
       - source: height_in
-        label: 高(in)
-        width: 92px
+        label: HEIGHT (IN)
+        width: 112px
   metric:
     label: 厘米
     fields:
       - source: length_cm
-        label: 长(cm)
-        width: 92px
+        label: LENGTH (CM)
+        width: 118px
       - source: width_cm
-        label: 宽(cm)
-        width: 92px
+        label: WIDTH (CM)
+        width: 112px
       - source: height_cm
-        label: 高(cm)
-        width: 92px
+        label: HEIGHT (CM)
+        width: 112px
 type_field: 分类
 pickup_type: 皮卡
 pickup_filters:
   - source: 驾驶室类型
-    label: 驾驶室类型
+    label: CAB
   - source: 货斗长度_ft
-    label: 货斗长度_ft
+    label: BED
