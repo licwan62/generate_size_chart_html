@@ -7,7 +7,8 @@
   }
 
   const directories = config.directories || [];
-  let activeDirectory = directories[0] || null;
+  let activeChartSelection = "all";
+  let activeSection = "search";
   const frameStates = new Map();
   const directoryIndexes = new Map();
   const directoryMetadata = new Map();
@@ -21,6 +22,9 @@
     selectedMake: "",
     selectedModel: "",
     selectedYear: "",
+    selectedType: "",
+    selectedCab: "",
+    selectedBed: "",
     columnWidths: {},
     status: "idle",
     message: ""
@@ -32,7 +36,92 @@
     return `${config.basePath}${directory.name}/${file}`;
   }
 
+  function chartDirectories() {
+    if (activeChartSelection === "all") {
+      return directories;
+    }
+    if (activeChartSelection.startsWith("source:")) {
+      const source = activeChartSelection.slice("source:".length);
+      return directories.filter((directory) => topSource(directory.name) === source);
+    }
+    if (activeChartSelection.startsWith("dir:")) {
+      const name = activeChartSelection.slice("dir:".length);
+      return directories.filter((directory) => directory.name === name);
+    }
+    return directories;
+  }
+
+  function chartSelectionLabel() {
+    if (activeChartSelection === "all") {
+      return "All";
+    }
+    if (activeChartSelection.startsWith("source:")) {
+      return activeChartSelection.slice("source:".length);
+    }
+    if (activeChartSelection.startsWith("dir:")) {
+      return activeChartSelection.slice("dir:".length);
+    }
+    return config.rootLabel;
+  }
+
+  function chartOutlineMarkup() {
+    const sources = [];
+    directories.forEach((directory) => {
+      const source = topSource(directory.name);
+      if (source && !sources.includes(source)) {
+        sources.push(source);
+      }
+    });
+
+    return `
+      <ol class="chart-outline-list">
+        <li>
+          <button class="chart-outline-node${activeChartSelection === "all" ? " is-active" : ""}" type="button" data-chart-scope="all">
+            <span class="chart-outline-dot"></span>
+            <span>All</span>
+          </button>
+        </li>
+        ${sources.map((source) => {
+        const children = directories.filter((directory) => topSource(directory.name) === source);
+          return `
+            <li>
+              <button class="chart-outline-node${activeChartSelection === `source:${source}` ? " is-active" : ""}" type="button" data-chart-scope="source:${escapeHtml(source)}">
+                <span class="chart-outline-dot"></span>
+                <span>${escapeHtml(source)}</span>
+              </button>
+              <ol class="chart-outline-list chart-outline-children">
+                ${children.map((directory) => {
+            const value = `dir:${directory.name}`;
+                  return `
+                    <li>
+                      <button class="chart-outline-node chart-outline-leaf${activeChartSelection === value ? " is-active" : ""}" type="button" data-chart-scope="${escapeHtml(value)}">
+                        <span class="chart-outline-dot"></span>
+                        <span>${escapeHtml(directoryLeaf(directory.name))}</span>
+                      </button>
+                    </li>
+                  `;
+                }).join("")}
+              </ol>
+            </li>
+          `;
+        }).join("")}
+      </ol>
+    `;
+  }
+
+  function directoryLeaf(directoryName) {
+    const parts = String(directoryName || "").split(/[\\/]/);
+    return parts[parts.length - 1] || directoryName;
+  }
+
+  function chartFileCount(scopeDirectories) {
+    return scopeDirectories.reduce((total, directory) => total + directory.files.length, 0);
+  }
+
   function render() {
+    const selectedChartDirectories = chartDirectories();
+    const selectedChartLabel = chartSelectionLabel();
+    const selectedChartFileCount = chartFileCount(selectedChartDirectories);
     app.innerHTML = `
       <header class="topbar">
         <div class="topbar-inner">
@@ -44,12 +133,7 @@
           </nav>
           <div class="current-title">
             <div class="root-label">二级页面 / ${config.rootLabel}</div>
-            <div class="current-path">${activeDirectory ? `${config.rootLabel}/${activeDirectory.name}` : config.rootLabel}</div>
-          </div>
-          <div class="directory-tabs" role="tablist" aria-label="Folders">
-            ${directories.map((directory) => `
-              <button class="dir-button${directory === activeDirectory ? " is-active" : ""}" type="button" data-dir="${directory.name}" role="tab" aria-selected="${directory === activeDirectory ? "true" : "false"}">${directory.name}</button>
-            `).join("")}
+            <div class="current-path">${config.rootLabel} / ${selectedChartLabel}</div>
           </div>
         </div>
         <nav class="drawer-panel" id="directory-drawer" aria-label="Directory tree">
@@ -58,7 +142,7 @@
             <ol class="tree">
               ${directories.map((directory) => `
                 <li class="tree-folder">
-                  <button class="tree-folder-header${directory === activeDirectory ? " is-active" : ""}" type="button" data-dir="${directory.name}">
+                  <button class="tree-folder-header${activeChartSelection === `dir:${directory.name}` ? " is-active" : ""}" type="button" data-dir="${directory.name}">
                     <span>${directory.name}/</span>
                     <span class="tree-count">${directory.files.length} HTML</span>
                   </button>
@@ -72,12 +156,28 @@
         </nav>
       </header>
 
-      <main class="viewer-main">
-        <section class="search-panel" aria-label="Size chart search">
+      <main class="viewer-main viewer-shell">
+        <aside class="viewer-side" aria-label="Page outline">
+          <button class="outline-item${activeSection === "search" ? " is-active" : ""}" type="button" data-section="search">
+            <span class="outline-marker"></span>
+            <span>Search Size</span>
+          </button>
+          <div class="outline-group${activeSection === "charts" ? " is-active" : ""}">
+            <button class="outline-item" type="button" data-section="charts">
+              <span class="outline-marker"></span>
+              <span>Size Charts</span>
+            </button>
+            <div class="outline-child chart-outline" aria-label="Size chart folders">
+              ${chartOutlineMarkup()}
+            </div>
+          </div>
+        </aside>
+        <div class="viewer-content">
+        <section class="search-panel viewer-section${activeSection === "search" ? "" : " is-hidden"}" aria-label="Size chart search">
           <div class="search-header">
             <div>
-              <h2>Search Records</h2>
-              <p>${searchState.query ? "Global search" : (activeDirectory ? activeDirectory.name : config.rootLabel)}</p>
+              <h2>Search Size</h2>
+              <p>All folders</p>
             </div>
             <button class="search-reset" type="button">Reset</button>
           </div>
@@ -112,23 +212,50 @@
                 <option value="">All years</option>
               </select>
             </label>
+            <label>
+              <span>TYPE</span>
+              <select class="search-select" data-search-field="type" ${searchState.status === "loading" ? "disabled" : ""}>
+                <option value="">All types</option>
+              </select>
+            </label>
+            <label>
+              <span>CAB</span>
+              <select class="search-select" data-search-field="cab" ${searchState.status === "loading" ? "disabled" : ""}>
+                <option value="">All cabs</option>
+              </select>
+            </label>
+            <label>
+              <span>BED</span>
+              <select class="search-select" data-search-field="bed" ${searchState.status === "loading" ? "disabled" : ""}>
+                <option value="">All beds</option>
+              </select>
+            </label>
           </div>
           <div class="search-summary" role="status"></div>
           <div class="search-results"></div>
         </section>
-        <section class="page-stack" aria-label="Selected HTML previews">
-          ${activeDirectory ? activeDirectory.files.map((file) => `
-            <article class="page-card">
-              <div class="page-card-header">
-                <div class="page-name">${activeDirectory.name}/${file}</div>
-                <a class="open-link" href="${pagePath(activeDirectory, file)}">打开</a>
-              </div>
-              <div class="frame-shell">
-                <iframe class="page-frame" title="${activeDirectory.name}/${file}" src="${pagePath(activeDirectory, file)}"></iframe>
-              </div>
-            </article>
-          `).join("") : ""}
+        <section class="page-stack size-charts-panel viewer-section${activeSection === "charts" ? "" : " is-hidden"}" aria-label="Size Charts">
+          <div class="size-charts-header">
+            <div>
+              <h2>Size Charts</h2>
+              <p>${selectedChartLabel} · ${selectedChartFileCount} HTML</p>
+            </div>
+          </div>
+          <div class="page-card-list">
+            ${selectedChartDirectories.flatMap((directory) => directory.files.map((file) => `
+              <article class="page-card">
+                <div class="page-card-header">
+                  <div class="page-name">${directory.name}/${file}</div>
+                  <a class="open-link" href="${pagePath(directory, file)}">打开</a>
+                </div>
+                <div class="frame-shell">
+                  <iframe class="page-frame" title="${directory.name}/${file}" src="${pagePath(directory, file)}"></iframe>
+                </div>
+              </article>
+            `)).join("")}
+          </div>
         </section>
+        </div>
       </main>
     `;
 
@@ -148,18 +275,31 @@
       drawerButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
     });
 
+    app.querySelectorAll("[data-section]").forEach((button) => {
+      button.addEventListener("click", () => {
+        activeSection = button.dataset.section;
+        render();
+      });
+    });
+
     app.querySelectorAll("[data-dir]").forEach((button) => {
       button.addEventListener("click", () => {
-        const next = directories.find((directory) => directory.name === button.dataset.dir);
-        if (next) {
-          activeDirectory = next;
+        if (directories.some((directory) => directory.name === button.dataset.dir)) {
+          activeChartSelection = `dir:${button.dataset.dir}`;
+          activeSection = "charts";
           frameStates.clear();
-          if (!searchState.query) {
-            resetSearchFilters();
-          }
           render();
           window.scrollTo({ top: 0, behavior: "instant" });
         }
+      });
+    });
+
+    app.querySelectorAll("[data-chart-scope]").forEach((button) => {
+      button.addEventListener("click", () => {
+        activeChartSelection = button.dataset.chartScope;
+        activeSection = "charts";
+        frameStates.clear();
+        render();
       });
     });
 
@@ -177,15 +317,36 @@
           searchState.selectedMake = "";
           searchState.selectedModel = "";
           searchState.selectedYear = "";
+          searchState.selectedType = "";
+          searchState.selectedCab = "";
+          searchState.selectedBed = "";
         } else if (select.dataset.searchField === "make") {
           searchState.selectedMake = select.value;
           searchState.selectedModel = "";
           searchState.selectedYear = "";
+          searchState.selectedType = "";
+          searchState.selectedCab = "";
+          searchState.selectedBed = "";
         } else if (select.dataset.searchField === "model") {
           searchState.selectedModel = select.value;
           searchState.selectedYear = "";
+          searchState.selectedType = "";
+          searchState.selectedCab = "";
+          searchState.selectedBed = "";
         } else if (select.dataset.searchField === "year") {
           searchState.selectedYear = select.value;
+          searchState.selectedType = "";
+          searchState.selectedCab = "";
+          searchState.selectedBed = "";
+        } else if (select.dataset.searchField === "type") {
+          searchState.selectedType = select.value;
+          searchState.selectedCab = "";
+          searchState.selectedBed = "";
+        } else if (select.dataset.searchField === "cab") {
+          searchState.selectedCab = select.value;
+          searchState.selectedBed = "";
+        } else if (select.dataset.searchField === "bed") {
+          searchState.selectedBed = select.value;
         }
         updateSearchControls();
         updateSearchResults();
@@ -221,6 +382,9 @@
     searchState.selectedMake = "";
     searchState.selectedModel = "";
     searchState.selectedYear = "";
+    searchState.selectedType = "";
+    searchState.selectedCab = "";
+    searchState.selectedBed = "";
   }
 
   function currentSearchDirectories() {
@@ -234,6 +398,11 @@
 
     const token = ++searchLoadToken;
     const scopeKey = scopeDirectories.map((directory) => directory.name).join("|");
+    if (searchState.scopeKey === scopeKey && (searchState.status === "ready" || searchState.status === "loading")) {
+      updateSearchControls();
+      updateSearchResults();
+      return;
+    }
     searchState.scopeKey = scopeKey;
     searchState.records = [];
     searchState.columns = [];
@@ -306,7 +475,8 @@
   function scheduleFrameSearchIndex() {
     window.clearTimeout(frameSearchTimer);
     frameSearchTimer = window.setTimeout(() => {
-      if (!activeDirectory || searchState.scopeKey !== activeDirectory.name) {
+      const fallbackDirectory = chartDirectories()[0] || directories[0];
+      if (!fallbackDirectory || searchState.scopeKey !== fallbackDirectory.name) {
         return;
       }
       const records = [];
@@ -315,14 +485,14 @@
         try {
           const file = frame.getAttribute("src").split("/").pop();
           if (frame.contentDocument) {
-            records.push(...extractRecords(frame.contentDocument, file, activeDirectory, columns));
+            records.push(...extractRecords(frame.contentDocument, file, fallbackDirectory, columns));
           }
         } catch (error) {
           // Some browsers block file previews from being inspected.
         }
       });
       if (records.length) {
-        setSearchIndex(activeDirectory.name, records, columns);
+        setSearchIndex(fallbackDirectory.name, records, columns);
       } else {
         searchState.status = "error";
         searchState.message = "Unable to read the preview pages in this browser.";
@@ -518,7 +688,10 @@
     const modelSelect = app.querySelector('[data-search-field="model"]');
     const yearSelect = app.querySelector('[data-search-field="year"]');
     const sourceSelect = app.querySelector('[data-search-field="source"]');
-    if (!makeSelect || !modelSelect || !yearSelect || !sourceSelect) {
+    const typeSelect = app.querySelector('[data-search-field="type"]');
+    const cabSelect = app.querySelector('[data-search-field="cab"]');
+    const bedSelect = app.querySelector('[data-search-field="bed"]');
+    if (!makeSelect || !modelSelect || !yearSelect || !sourceSelect || !typeSelect || !cabSelect || !bedSelect) {
       return;
     }
 
@@ -527,16 +700,25 @@
     const sourceRecords = makeRecords.filter((record) => !searchState.selectedSource || topSource(record.directory) === searchState.selectedSource);
     const modelRecords = sourceRecords.filter((record) => !searchState.selectedMake || record.make === searchState.selectedMake);
     const yearRecords = modelRecords.filter((record) => !searchState.selectedModel || record.model === searchState.selectedModel);
+    const typeRecords = yearRecords.filter((record) => !searchState.selectedYear || record.years.includes(Number(searchState.selectedYear)));
+    const cabRecords = typeRecords.filter((record) => !searchState.selectedType || recordFilterValue(record, "TYPE") === searchState.selectedType);
+    const bedRecords = cabRecords.filter((record) => !searchState.selectedCab || recordFilterValue(record, "CAB") === searchState.selectedCab);
 
-    fillSelect(sourceSelect, "All sources", unique(makeRecords.map((record) => topSource(record.directory))), searchState.selectedSource);
+    fillSelect(sourceSelect, "All sources", uniqueInOrder(makeRecords.map((record) => topSource(record.directory))), searchState.selectedSource);
     fillSelect(makeSelect, "All makes", unique(sourceRecords.map((record) => record.make)), searchState.selectedMake);
     fillSelect(modelSelect, "All models", unique(modelRecords.map((record) => record.model)), searchState.selectedModel);
     fillSelect(yearSelect, "All years", uniqueYears(yearRecords), searchState.selectedYear);
+    fillSelect(typeSelect, "All types", unique(typeRecords.map((record) => recordFilterValue(record, "TYPE"))), searchState.selectedType);
+    fillSelect(cabSelect, "All cabs", unique(cabRecords.map((record) => recordFilterValue(record, "CAB"))), searchState.selectedCab);
+    fillSelect(bedSelect, "All beds", unique(bedRecords.map((record) => recordFilterValue(record, "BED"))), searchState.selectedBed);
 
     sourceSelect.disabled = !ready;
     makeSelect.disabled = !ready;
     modelSelect.disabled = !ready || !modelRecords.length;
     yearSelect.disabled = !ready || !yearRecords.length;
+    typeSelect.disabled = !ready || !typeRecords.length;
+    cabSelect.disabled = !ready || !cabRecords.length;
+    bedSelect.disabled = !ready || !bedRecords.length;
   }
 
   function updateSearchResults() {
@@ -559,13 +741,6 @@
       return;
     }
 
-    const hasFilter = searchState.query.trim() || searchState.selectedSource || searchState.selectedMake || searchState.selectedModel || searchState.selectedYear;
-    if (!hasFilter) {
-      summary.textContent = `${searchState.records.length} rows indexed. Select MAKE, MODEL, or YEAR to search.`;
-      results.innerHTML = "";
-      return;
-    }
-
     const matches = getSearchMatches();
     summary.textContent = `${matches.length} matching row${matches.length === 1 ? "" : "s"}.`;
     results.innerHTML = renderResultsTable(matches);
@@ -584,6 +759,15 @@
         return false;
       }
       if (searchState.selectedYear && !record.years.includes(Number(searchState.selectedYear))) {
+        return false;
+      }
+      if (searchState.selectedType && recordFilterValue(record, "TYPE") !== searchState.selectedType) {
+        return false;
+      }
+      if (searchState.selectedCab && recordFilterValue(record, "CAB") !== searchState.selectedCab) {
+        return false;
+      }
+      if (searchState.selectedBed && recordFilterValue(record, "BED") !== searchState.selectedBed) {
         return false;
       }
       return true;
@@ -672,7 +856,12 @@
   function resultColumnValue(record, column) {
     if (sameColumn(column, "MODEL")) return record.values[column] || record.model || "";
     if (sameColumn(column, "MAKE")) return record.make || "";
+    if (sameColumn(column, "TYPE")) return record.values[column] || record.type || "";
     return record.values[column] || "";
+  }
+
+  function recordFilterValue(record, column) {
+    return cleanField(resultColumnValue(record, column));
   }
 
   function resultHeaderClass(column) {
@@ -733,7 +922,7 @@
   }
 
   function pagePathByName(directoryName, file) {
-    const directory = directories.find((item) => item.name === directoryName) || activeDirectory;
+    const directory = directories.find((item) => item.name === directoryName) || chartDirectories()[0] || directories[0];
     return directory ? pagePath(directory, file) : "#";
   }
 
@@ -749,6 +938,16 @@
 
   function unique(values) {
     return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }
+
+  function uniqueInOrder(values) {
+    const result = [];
+    values.filter(Boolean).forEach((value) => {
+      if (!result.includes(value)) {
+        result.push(value);
+      }
+    });
+    return result;
   }
 
   function uniqueYears(records) {
