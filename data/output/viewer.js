@@ -36,7 +36,7 @@
     scopeKey: "",
     records: [],
     columns: [],
-    query: "",
+    query: initialQuery(),
     selectedSource: "",
     selectedMake: "",
     selectedModel: "",
@@ -56,6 +56,10 @@
   };
   let searchLoadToken = 0;
   let frameSearchTimer = 0;
+
+  function initialQuery() {
+    return new URLSearchParams(window.location.search).get("q") || "";
+  }
 
   function pagePath(directory, file) {
     return `${config.basePath}${directory.name}/${file}`;
@@ -1248,9 +1252,11 @@
   }
 
   function sizeReferenceMarkup(size, ref) {
+    const model = cleanField(ref["型号"]) || cleanField(size);
+    const commonSize = cleanField(ref["通用尺码"]);
     return `
-      <div class="size-reference-title">${escapeHtml(cleanField(size))}</div>
-      <div class="size-reference-common">${escapeHtml(ref["通用尺码"] || "")}</div>
+      <div class="size-reference-title">${escapeHtml(model)}</div>
+      <div class="size-reference-common">${escapeHtml(commonSize ? `通用尺码 ${commonSize}` : `匹配 ${cleanField(size)}`)}</div>
       <div class="size-reference-dims">
         ${sizeReferenceDimension("长", ref["长_in"])}
         ${sizeReferenceDimension("宽", ref["宽_in"])}

@@ -1536,8 +1536,8 @@ body.is-resizing-column {
   position: fixed;
   z-index: 9999;
   display: none;
-  width: 210px;
-  padding: 10px;
+  width: 230px;
+  padding: 11px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
@@ -1553,15 +1553,16 @@ body.is-resizing-column {
 }
 
 .size-reference-title {
-  color: var(--accent);
-  font-size: 16px;
+  color: #0f172a;
+  font-size: 21px;
   font-weight: 800;
+  line-height: 1;
 }
 
 .size-reference-meta,
 .size-reference-common {
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--accent);
+  font-size: 13px;
   font-weight: 700;
 }
 
