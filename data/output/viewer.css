@@ -400,7 +400,7 @@ button {
 
 .search-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding: 14px 16px 12px;
 }
@@ -696,6 +696,15 @@ body.is-resizing-column {
   table-layout: fixed;
 }
 
+.size-results-wrap .results-table {
+  width: max-content;
+  min-width: 720px;
+}
+
+.size-results-table {
+  table-layout: fixed;
+}
+
 .car-data-table.dimension-theme-blue .dimension-heading {
   background: #dcecff;
   color: #0a447d;
@@ -705,6 +714,19 @@ body.is-resizing-column {
 .car-data-table.dimension-theme-yellow .dimension-heading {
   background: #fff0bf;
   color: #745200;
+  text-align: center;
+}
+
+.size-results-table .source-heading {
+  background: #f5f7fa;
+  color: #8a94a6;
+}
+
+.size-results-table .size-heading {
+  right: 0;
+  z-index: 3;
+  background: #dcecff;
+  color: #0a447d;
   text-align: center;
 }
 
@@ -770,11 +792,44 @@ body.is-resizing-column {
   text-align: center !important;
 }
 
+.source-cell {
+  background: #fafbfc;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400 !important;
+}
+
+.source-cell a {
+  display: block;
+  overflow: hidden;
+  color: #7a8597;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size-cell {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  min-width: 96px;
+  background: #f7fbff;
+  box-shadow: -8px 0 12px rgba(23, 32, 51, 0.06);
+  text-align: center !important;
+}
+
 .dimension-theme-yellow .dimension-cell {
   background: #fff9df;
 }
 
 .dimension-cell strong {
+  display: block;
+  color: #0a447d;
+  font-size: 21px;
+  line-height: 1.05;
+}
+
+.size-cell strong {
   display: block;
   color: #0a447d;
   font-size: 21px;

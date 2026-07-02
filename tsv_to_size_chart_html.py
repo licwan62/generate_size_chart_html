@@ -1656,6 +1656,21 @@ def input_store_output_path(input_path: Path, store_value: str) -> Path:
     return script_root() / "data" / "output" / f"{input_path.stem}-{safe_path_part(store_value)}" / "output.html"
 
 
+def output_profile_dir_name(profile_name: str) -> str:
+    return "nonpick" if normalize_profile_key(profile_name) == "non-pickup" else "pick"
+
+
+def store_profile_output_path(store_value: str, profile_name: str) -> Path:
+    return (
+        script_root()
+        / "data"
+        / "output"
+        / safe_path_part(store_value)
+        / output_profile_dir_name(profile_name)
+        / "output.html"
+    )
+
+
 def normalize_profile_key(profile_name: str) -> str:
     cleaned = profile_name.strip().lower().replace("_", "-")
     aliases = {
@@ -1705,6 +1720,10 @@ def configured_field(
     prefixed = next(iter(profile_config_values(config, profile_key, key)), "")
     if prefixed:
         return prefixed
+    if key == "store_column":
+        shared_store_value = config.get("store_store_column", "").strip()
+        if shared_store_value:
+            return shared_store_value
     global_value = config.get(key, "").strip()
     if global_value:
         return global_value
@@ -1844,6 +1863,16 @@ def store_values_for_inputs(prepared_inputs: list[dict[str, object]]) -> list[st
     return values
 
 
+def prepared_has_store_value(prepared: dict[str, object], store_value: str) -> bool:
+    store_column = str(prepared.get("store_column", ""))
+    if not store_column:
+        return False
+    return any(
+        row.get(store_column, "").strip() == store_value
+        for row in prepared["rows"]  # type: ignore[index]
+    )
+
+
 def generate_output(
     args: argparse.Namespace,
     config: dict[str, str],
@@ -1943,24 +1972,16 @@ def main() -> None:
 
     store_values = [] if output_was_explicit else store_values_for_inputs(prepared_inputs)
     if store_values:
-        for prepared in prepared_inputs:
-            input_path = prepared["path"]  # type: ignore[assignment]
-            store_column = str(prepared.get("store_column", ""))
-            if not store_column:
-                continue
-            seen_store_values = []
-            seen = set()
-            for row in prepared["rows"]:  # type: ignore[index]
-                store_value = row.get(store_column, "").strip()
-                if store_value and store_value not in seen:
-                    seen.add(store_value)
-                    seen_store_values.append(store_value)
-            for store_value in seen_store_values:
+        for store_value in store_values:
+            for prepared in prepared_inputs:
+                if not prepared_has_store_value(prepared, store_value):
+                    continue
+                profile_name = str(prepared["profile_name"])
                 generate_output(
                     args,
                     config,
                     [prepared],
-                    input_store_output_path(input_path, store_value),
+                    store_profile_output_path(store_value, profile_name),
                     store_value,
                 )
         return

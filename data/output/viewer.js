@@ -17,9 +17,11 @@
     records: [],
     columns: [],
     query: "",
+    selectedSource: "",
     selectedMake: "",
     selectedModel: "",
     selectedYear: "",
+    columnWidths: {},
     status: "idle",
     message: ""
   };
@@ -86,6 +88,12 @@
             </label>
           </div>
           <div class="search-controls">
+            <label>
+              <span>SOURCE</span>
+              <select class="search-select" data-search-field="source" ${searchState.status === "loading" ? "disabled" : ""}>
+                <option value="">All sources</option>
+              </select>
+            </label>
             <label>
               <span>MAKE</span>
               <select class="search-select" data-search-field="make" ${searchState.status === "loading" ? "disabled" : ""}>
@@ -164,7 +172,12 @@
 
     app.querySelectorAll("[data-search-field]").forEach((select) => {
       select.addEventListener("change", () => {
-        if (select.dataset.searchField === "make") {
+        if (select.dataset.searchField === "source") {
+          searchState.selectedSource = select.value;
+          searchState.selectedMake = "";
+          searchState.selectedModel = "";
+          searchState.selectedYear = "";
+        } else if (select.dataset.searchField === "make") {
           searchState.selectedMake = select.value;
           searchState.selectedModel = "";
           searchState.selectedYear = "";
@@ -204,13 +217,14 @@
   }
 
   function resetSearchFilters() {
+    searchState.selectedSource = "";
     searchState.selectedMake = "";
     searchState.selectedModel = "";
     searchState.selectedYear = "";
   }
 
   function currentSearchDirectories() {
-    return searchState.query.trim() ? directories : (activeDirectory ? [activeDirectory] : []);
+    return directories;
   }
 
   async function loadSearchIndex(scopeDirectories) {
@@ -441,14 +455,15 @@
     } catch (error) {
       // The generated HTML is still searchable without source metadata.
     }
-    if (!metadata.profile && directory.name.startsWith("pick-")) {
+    const tags = sourceTags(directory.name);
+    if (!metadata.profile && tags.includes("pick")) {
       metadata.profile = "pickup";
     }
-    if (!metadata.inputPath && directory.name.startsWith("pick-")) {
+    if (!metadata.inputPath && tags.includes("pick")) {
       metadata.inputPath = "data/input/0630/pick.tsv";
     }
-    if (!metadata.storeValue && directory.name.startsWith("pick-")) {
-      metadata.storeValue = directory.name.replace(/^pick-/, "");
+    if (!metadata.storeValue && tags.includes("pick")) {
+      metadata.storeValue = directory.name.split(/[\\/]/)[0].replace(/^pick-/, "");
     }
     directoryMetadata.set(directory.name, metadata);
     return metadata;
@@ -502,19 +517,23 @@
     const makeSelect = app.querySelector('[data-search-field="make"]');
     const modelSelect = app.querySelector('[data-search-field="model"]');
     const yearSelect = app.querySelector('[data-search-field="year"]');
-    if (!makeSelect || !modelSelect || !yearSelect) {
+    const sourceSelect = app.querySelector('[data-search-field="source"]');
+    if (!makeSelect || !modelSelect || !yearSelect || !sourceSelect) {
       return;
     }
 
     const ready = searchState.status === "ready";
     const makeRecords = queryFilteredRecords();
-    const modelRecords = makeRecords.filter((record) => !searchState.selectedMake || record.make === searchState.selectedMake);
+    const sourceRecords = makeRecords.filter((record) => !searchState.selectedSource || topSource(record.directory) === searchState.selectedSource);
+    const modelRecords = sourceRecords.filter((record) => !searchState.selectedMake || record.make === searchState.selectedMake);
     const yearRecords = modelRecords.filter((record) => !searchState.selectedModel || record.model === searchState.selectedModel);
 
-    fillSelect(makeSelect, "All makes", unique(makeRecords.map((record) => record.make)), searchState.selectedMake);
+    fillSelect(sourceSelect, "All sources", unique(makeRecords.map((record) => topSource(record.directory))), searchState.selectedSource);
+    fillSelect(makeSelect, "All makes", unique(sourceRecords.map((record) => record.make)), searchState.selectedMake);
     fillSelect(modelSelect, "All models", unique(modelRecords.map((record) => record.model)), searchState.selectedModel);
     fillSelect(yearSelect, "All years", uniqueYears(yearRecords), searchState.selectedYear);
 
+    sourceSelect.disabled = !ready;
     makeSelect.disabled = !ready;
     modelSelect.disabled = !ready || !modelRecords.length;
     yearSelect.disabled = !ready || !yearRecords.length;
@@ -540,7 +559,7 @@
       return;
     }
 
-    const hasFilter = searchState.query.trim() || searchState.selectedMake || searchState.selectedModel || searchState.selectedYear;
+    const hasFilter = searchState.query.trim() || searchState.selectedSource || searchState.selectedMake || searchState.selectedModel || searchState.selectedYear;
     if (!hasFilter) {
       summary.textContent = `${searchState.records.length} rows indexed. Select MAKE, MODEL, or YEAR to search.`;
       results.innerHTML = "";
@@ -550,11 +569,15 @@
     const matches = getSearchMatches();
     summary.textContent = `${matches.length} matching row${matches.length === 1 ? "" : "s"}.`;
     results.innerHTML = renderResultsTable(matches);
+    bindResultColumnResizers();
   }
 
   function getSearchMatches() {
     return queryFilteredRecords().filter((record) => {
       if (searchState.selectedMake && record.make !== searchState.selectedMake) {
+        return false;
+      }
+      if (searchState.selectedSource && topSource(record.directory) !== searchState.selectedSource) {
         return false;
       }
       if (searchState.selectedModel && record.model !== searchState.selectedModel) {
@@ -582,22 +605,39 @@
     }
 
     const columns = resultColumns(records);
+    const tableColumns = [
+      { key: "SOURCE", label: "SOURCE", source: true, width: "56px" },
+      { key: "MAKE", label: "MAKE", width: "105px" },
+      ...columns.map((column) => ({
+        key: column,
+        label: column,
+        size: isSizeColumn(column),
+        width: defaultResultColumnWidth(column)
+      }))
+    ];
     return `
-      <div class="results-table-wrap">
-        <table class="results-table">
+      <div class="results-table-wrap size-results-wrap">
+        <table class="results-table size-results-table">
+          <colgroup>
+            ${tableColumns.map((column) => {
+              const width = searchState.columnWidths[column.key] || column.width;
+              return `<col data-col-key="${escapeHtml(column.key)}"${width ? ` style="width: ${escapeHtml(width)}"` : ""}>`;
+            }).join("")}
+          </colgroup>
           <thead>
             <tr>
-              <th>SOURCE</th>
-              <th>MAKE</th>
-              ${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}
+              ${tableColumns.map((column) => `
+                <th class="${resultHeaderClass(column)}" data-col-key="${escapeHtml(column.key)}">
+                  <span class="th-label">${escapeHtml(column.label)}</span>
+                  <span class="col-resizer" data-col-key="${escapeHtml(column.key)}" title="拖动调整列宽" aria-hidden="true"></span>
+                </th>
+              `).join("")}
             </tr>
           </thead>
           <tbody>
             ${records.map((record) => `
               <tr>
-                <td><a href="${pagePathByName(record.directory, record.file)}">${escapeHtml(record.source)}</a></td>
-                <td>${escapeHtml(record.make)}</td>
-                ${columns.map((column) => `<td>${escapeHtml(record.values[column] || "")}</td>`).join("")}
+                ${tableColumns.map((column) => resultCellMarkup(record, column)).join("")}
               </tr>
             `).join("")}
           </tbody>
@@ -607,13 +647,98 @@
   }
 
   function resultColumns(records) {
-    const usedColumns = searchState.columns.filter((column) => records.some((record) => record.values[column]));
-    return usedColumns.length ? usedColumns : ["MODEL", "YEAR", "TYPE", "SIZE"];
+    const usedColumns = searchState.columns.filter((column) => records.some((record) => resultColumnValue(record, column)));
+    const fallbackColumns = ["MODEL", "YEAR", "TYPE", "SIZE"];
+    const columns = usedColumns.length ? usedColumns : fallbackColumns;
+    const withModel = records.some((record) => record.model) && !columns.some((column) => sameColumn(column, "MODEL"))
+      ? ["MODEL", ...columns]
+      : columns;
+    const withoutSize = withModel.filter((column) => !isSizeColumn(column));
+    const hasSize = withModel.some((column) => isSizeColumn(column)) || records.some((record) => record.values.SIZE || record.size);
+    return hasSize ? [...withoutSize, "SIZE"] : withoutSize;
+  }
+
+  function resultCellMarkup(record, column) {
+    if (column.source) {
+      return `<td class="source-cell"><a href="${pagePathByName(record.directory, record.file)}">${escapeHtml(record.source)}</a></td>`;
+    }
+    const value = column.key === "MAKE" ? record.make : resultColumnValue(record, column.key);
+    if (column.size) {
+      return `<td class="size-cell"><strong>${escapeHtml(value || "-")}</strong></td>`;
+    }
+    return `<td>${escapeHtml(value || "")}</td>`;
+  }
+
+  function resultColumnValue(record, column) {
+    if (sameColumn(column, "MODEL")) return record.values[column] || record.model || "";
+    if (sameColumn(column, "MAKE")) return record.make || "";
+    return record.values[column] || "";
+  }
+
+  function resultHeaderClass(column) {
+    if (column.source) return "source-heading";
+    if (column.size) return "size-heading";
+    return "";
+  }
+
+  function defaultResultColumnWidth(column) {
+    if (sameColumn(column, "MODEL")) return "150px";
+    if (sameColumn(column, "YEAR")) return "92px";
+    if (sameColumn(column, "TYPE")) return "130px";
+    if (sameColumn(column, "CAB")) return "110px";
+    if (sameColumn(column, "BED")) return "90px";
+    if (isSizeColumn(column)) return "104px";
+    return "118px";
+  }
+
+  function bindResultColumnResizers() {
+    const table = app.querySelector(".size-results-table");
+    if (!table) return;
+    table.querySelectorAll(".col-resizer").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => {
+        const key = handle.dataset.colKey;
+        const col = table.querySelector(`col[data-col-key="${cssEscape(key)}"]`);
+        if (!col) return;
+        event.preventDefault();
+        const startX = event.clientX;
+        const startWidth = col.getBoundingClientRect().width || 96;
+        document.body.classList.add("is-resizing-column");
+
+        const onPointerMove = (moveEvent) => {
+          const width = Math.max(56, Math.round(startWidth + moveEvent.clientX - startX));
+          searchState.columnWidths[key] = `${width}px`;
+          col.style.width = searchState.columnWidths[key];
+        };
+
+        const stopResize = () => {
+          document.body.classList.remove("is-resizing-column");
+          document.removeEventListener("pointermove", onPointerMove);
+          document.removeEventListener("pointerup", stopResize);
+          document.removeEventListener("pointercancel", stopResize);
+        };
+
+        document.addEventListener("pointermove", onPointerMove);
+        document.addEventListener("pointerup", stopResize);
+        document.addEventListener("pointercancel", stopResize);
+      });
+    });
+  }
+
+  function isSizeColumn(column) {
+    return sameColumn(column, "SIZE");
+  }
+
+  function sameColumn(left, right) {
+    return cleanField(left).toUpperCase() === cleanField(right).toUpperCase();
   }
 
   function pagePathByName(directoryName, file) {
     const directory = directories.find((item) => item.name === directoryName) || activeDirectory;
     return directory ? pagePath(directory, file) : "#";
+  }
+
+  function topSource(directoryName) {
+    return String(directoryName || "").split(/[\\/]/)[0] || directoryName;
   }
 
   function fillSelect(select, label, options, selectedValue) {
@@ -661,9 +786,9 @@
   function sourceTags(directoryName) {
     const normalized = normalizeSearchText(directoryName);
     const tags = new Set(normalized.split(/\s+/).filter(Boolean));
-    if (normalized.startsWith("nonpick")) {
+    if (normalized.includes("nonpick")) {
       tags.add("nonpick");
-    } else if (normalized.startsWith("pick")) {
+    } else if (normalized.includes("pick")) {
       tags.add("pick");
     }
     return Array.from(tags);
@@ -712,6 +837,11 @@
       return "";
     }
     return element.textContent.replace(/\s+/g, " ").trim();
+  }
+
+  function cssEscape(value) {
+    if (window.CSS && CSS.escape) return CSS.escape(value);
+    return String(value).replace(/"/g, '\\"');
   }
 
   function escapeHtml(value) {
